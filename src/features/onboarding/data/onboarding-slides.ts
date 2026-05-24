@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { AppImages } from '@/assets/images';
+import { Colors } from '@/constants/theme';
 
 type MaterialIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -25,7 +26,7 @@ export const onboardingSlides: OnboardingSlide[] = [
     buttonLabel: 'Next',
     iconName: 'recycle',
     image: AppImages.onboardingWasteRecognition,
-    accentColor: '#0CB574',
+    accentColor: Colors.accent.green,
   },
   {
     id: 'guidance',
@@ -35,7 +36,7 @@ export const onboardingSlides: OnboardingSlide[] = [
     buttonLabel: 'Next',
     iconName: 'leaf',
     image: AppImages.onboardingGuidance,
-    accentColor: '#09C956',
+    accentColor: Colors.accent.greenBright,
   },
   {
     id: 'recycling-centres',
@@ -45,7 +46,7 @@ export const onboardingSlides: OnboardingSlide[] = [
     buttonLabel: 'Next',
     iconName: 'map-marker-outline',
     image: AppImages.onboardingRecyclingCentre,
-    accentColor: '#377CF1',
+    accentColor: Colors.accent.blue,
   },
   {
     id: 'impact-tracker',
@@ -55,6 +56,6 @@ export const onboardingSlides: OnboardingSlide[] = [
     buttonLabel: 'Get Started',
     iconName: 'chart-line-variant',
     image: AppImages.onboardingTracker,
-    accentColor: '#9E3FF8',
+    accentColor: Colors.accent.purple,
   },
 ];

@@ -13,16 +13,20 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  Colors,
+  Fonts,
+  FontSizes,
+  FontWeights,
+  IconSizes,
+  LineHeights,
+  Radii,
+  Shadows,
+  Spacing,
+} from '@/constants/theme';
 import { onboardingSlides, type OnboardingSlide } from '@/features/onboarding/data/onboarding-slides';
-import { Fonts } from '@/theme/fonts';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-
-const BRAND_GREEN = '#0AA36C';
-const BODY_TEXT = '#233041';
-const MUTED_TEXT = '#B6BCC7';
-const DOT_INACTIVE = '#D7DCE3';
-const DOT_ACTIVE = '#0AA36C';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -104,7 +108,7 @@ export default function OnboardingScreen() {
               </View>
 
               <View style={styles.titleRow}>
-                <MaterialCommunityIcons name={item.iconName} size={24} color="#111827" />
+                <MaterialCommunityIcons name={item.iconName} size={IconSizes.lg} color={Colors.brand.text} />
                 <Text style={styles.title}>{item.title}</Text>
               </View>
 
@@ -124,7 +128,7 @@ export default function OnboardingScreen() {
                   style={[
                     styles.dot,
                     isActive ? styles.activeDot : styles.inactiveDot,
-                    isActive && { backgroundColor: currentSlide.accentColor || DOT_ACTIVE },
+                    isActive && { backgroundColor: Colors.brand.primary },
                   ]}
                 />
               );
@@ -133,7 +137,11 @@ export default function OnboardingScreen() {
 
           <Pressable accessibilityRole="button" onPress={handleNext} style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{currentSlide.buttonLabel}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#FFFFFF" />
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={IconSizes.md}
+              color={Colors.brand.onPrimary}
+            />
           </Pressable>
         </View>
       </View>
@@ -144,44 +152,44 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.brand.surface,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.brand.surface,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.sm,
   },
   headerSpacer: {
-    width: 48,
-    height: 24,
+    width: Spacing.wide,
+    height: LineHeights.body,
   },
   skipButton: {
-    minWidth: 48,
+    minWidth: Spacing.wide,
     alignItems: 'flex-end',
   },
   skipText: {
-    color: MUTED_TEXT,
-    fontSize: 16,
-    lineHeight: 22,
+    color: Colors.brand.muted,
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.bodyTight,
     fontFamily: Fonts.sans,
-    fontWeight: '600',
+    fontWeight: FontWeights.semibold,
   },
   slide: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingTop: 84,
+    paddingHorizontal: Spacing.xxl,
+    paddingTop: Spacing.heroTop,
   },
   heroSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: Spacing.xxl,
   },
   heroImage: {
     width: 176,
@@ -191,66 +199,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 18,
+    gap: Spacing.md,
+    marginBottom: FontSizes.button,
   },
   title: {
-    color: '#111827',
-    fontSize: 24,
-    lineHeight: 30,
+    color: Colors.brand.text,
+    fontSize: FontSizes.title,
+    lineHeight: LineHeights.title,
     fontFamily: Fonts.sans,
-    fontWeight: '500',
+    fontWeight: FontWeights.medium,
     textAlign: 'center',
   },
   description: {
     maxWidth: 292,
-    color: BODY_TEXT,
-    fontSize: 21,
-    lineHeight: 32,
+    color: Colors.brand.body,
+    fontSize: FontSizes.bodyLarge,
+    lineHeight: LineHeights.bodyLarge,
     textAlign: 'center',
     fontFamily: Fonts.sans,
   },
   footer: {
-    paddingHorizontal: 28,
-    paddingTop: 16,
+    paddingHorizontal: Spacing.xxl,
+    paddingTop: Spacing.lg,
   },
   dots: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 28,
+    gap: Spacing.sm,
+    marginBottom: Spacing.xxl,
   },
   dot: {
-    height: 8,
-    borderRadius: 999,
+    height: Spacing.sm,
+    borderRadius: Radii.pill,
   },
   activeDot: {
-    width: 28,
+    width: Spacing.xxl,
   },
   inactiveDot: {
-    width: 8,
-    backgroundColor: DOT_INACTIVE,
+    width: Spacing.sm,
+    backgroundColor: Colors.brand.dotInactive,
   },
   primaryButton: {
     minHeight: 58,
-    borderRadius: 16,
-    backgroundColor: BRAND_GREEN,
+    borderRadius: Radii.lg,
+    backgroundColor: Colors.brand.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    shadowColor: '#0B7F55',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 3,
+    gap: Spacing.xs + 2,
+    ...Shadows.button,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    lineHeight: 24,
+    color: Colors.brand.onPrimary,
+    fontSize: FontSizes.button,
+    lineHeight: LineHeights.button,
     fontFamily: Fonts.sans,
-    fontWeight: '600',
+    fontWeight: FontWeights.semibold,
   },
 });

@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed/themed-view';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/ui/external-link';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/theme/fonts';
+import { Fonts } from '@/constants/theme';
 
 export default function ExploreScreen() {
   return (
@@ -52,9 +52,9 @@ export default function ExploreScreen() {
 
       <Collapsible title="Theme and hooks">
         <ThemedText>
-          Theme tokens live in <ThemedText type="defaultSemiBold">src/theme</ThemedText>, and app
-          hooks live in <ThemedText type="defaultSemiBold">src/hooks</ThemedText> so styling logic
-          stays easy to find.
+          Theme tokens now live in <ThemedText type="defaultSemiBold">src/constants/theme.ts</ThemedText>,
+          and app hooks live in <ThemedText type="defaultSemiBold">src/hooks</ThemedText> so
+          styling logic stays easy to find.
         </ThemedText>
         <ExternalLink href="https://docs.expo.dev/router/introduction">
           <ThemedText type="link">Learn more about Expo Router</ThemedText>
@@ -65,7 +65,7 @@ export default function ExploreScreen() {
         <ThemedText>
           Static images stay in the root <ThemedText type="defaultSemiBold">assets</ThemedText>{' '}
           folder and are re-exported through{' '}
-          <ThemedText type="defaultSemiBold">src/assets/images.ts</ThemedText> to keep imports
+          <ThemedText type="defaultSemiBold">src/assets/images/index.ts</ThemedText> to keep imports
           clean.
         </ThemedText>
         <Image source={AppImages.reactLogo} style={styles.assetPreview} />
