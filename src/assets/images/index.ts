@@ -1,4 +1,5 @@
 export const AppImages = {
+  ecoloopLogo: require('./Ecoloop_logo.png'),
   favicon: require('../../../assets/images/favicon.png'),
   icon: require('../../../assets/images/icon.png'),
   partialReactLogo: require('../../../assets/images/partial-react-logo.png'),

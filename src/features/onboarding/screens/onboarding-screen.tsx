@@ -5,7 +5,6 @@ import {
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HapticPressable } from '@/components/ui/haptic-pressable';
 import {
   Colors,
   Fonts,
@@ -40,7 +40,7 @@ export default function OnboardingScreen() {
   const showSkip = currentIndex < lastIndex;
 
   function finishOnboarding() {
-    router.replace('/(tabs)');
+    router.replace('/login');
   }
 
   function handleNext() {
@@ -69,13 +69,14 @@ export default function OnboardingScreen() {
         <View style={styles.header}>
           <View style={styles.headerSpacer} />
           {showSkip ? (
-            <Pressable
+            <HapticPressable
               accessibilityRole="button"
+              hapticType="selection"
               hitSlop={10}
               onPress={finishOnboarding}
               style={styles.skipButton}>
               <Text style={styles.skipText}>Skip</Text>
-            </Pressable>
+            </HapticPressable>
           ) : (
             <View style={styles.headerSpacer} />
           )}
@@ -135,14 +136,18 @@ export default function OnboardingScreen() {
             })}
           </View>
 
-          <Pressable accessibilityRole="button" onPress={handleNext} style={styles.primaryButton}>
+          <HapticPressable
+            accessibilityRole="button"
+            hapticType="medium"
+            onPress={handleNext}
+            style={styles.primaryButton}>
             <Text style={styles.primaryButtonText}>{currentSlide.buttonLabel}</Text>
             <MaterialCommunityIcons
               name="chevron-right"
               size={IconSizes.md}
               color={Colors.brand.onPrimary}
             />
-          </Pressable>
+          </HapticPressable>
         </View>
       </View>
     </SafeAreaView>

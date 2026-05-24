@@ -26,6 +26,7 @@ export const Colors = {
   },
   brand: {
     surface: '#FFFFFF',
+    authBackground: '#F1FBF5',
     text: '#111827',
     body: '#233041',
     muted: '#B6BCC7',
@@ -33,6 +34,9 @@ export const Colors = {
     primaryDark: '#0B7F55',
     onPrimary: '#FFFFFF',
     dotInactive: '#D7DCE3',
+    inputBorder: '#C9D5DA',
+    inputIcon: '#A6B4BC',
+    inputPlaceholder: '#93A2AC',
   },
   accent: {
     green: '#0CB574',
