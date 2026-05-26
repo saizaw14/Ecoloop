@@ -8,9 +8,9 @@ This project keeps Expo Router route files in `app/` and moves app code into `sr
 src/
   assets/        Static asset exports
   components/    Shared UI and layout primitives
+  constants/     Reusable design and app constants
   features/      Screen modules grouped by feature
   hooks/         Reusable hooks
-  theme/         Colors and fonts
 ```
 
 ## Rule of thumb
@@ -18,4 +18,4 @@ src/
 - Put route definitions in `app/`
 - Put screen implementations in `src/features/.../screens`
 - Put reusable UI in `src/components`
-- Put styling tokens in `src/theme`
+- Put styling tokens in `src/constants/theme.ts`

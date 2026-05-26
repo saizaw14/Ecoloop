@@ -4,8 +4,8 @@ import { StyleSheet, TouchableOpacity } from 'react-native';
 import { ThemedText } from '@/components/themed/themed-text';
 import { ThemedView } from '@/components/themed/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Colors, IconSizes, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/theme/colors';
 
 export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,7 +19,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
         activeOpacity={0.8}>
         <IconSymbol
           name="chevron.right"
-          size={18}
+          size={IconSizes.sm}
           weight="medium"
           color={theme === 'light' ? Colors.light.icon : Colors.dark.icon}
           style={{ transform: [{ rotate: isOpen ? '90deg' : '0deg' }] }}
@@ -36,10 +36,10 @@ const styles = StyleSheet.create({
   heading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.xs + 2,
   },
   content: {
-    marginTop: 6,
-    marginLeft: 24,
+    marginTop: Spacing.xs + 2,
+    marginLeft: Spacing.xl,
   },
 });
