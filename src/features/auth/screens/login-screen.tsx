@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 import { HapticPressable } from '@/components/ui/haptic-pressable';
 import { AuthInput } from '@/features/auth/components/auth-input';
 import { AuthScreenShell } from '@/features/auth/components/auth-screen-shell';
 import { AuthSocialButton } from '@/features/auth/components/auth-social-button';
+import { getLoginAuthError } from '@/features/auth/utils/get-auth-error-message';
+import { isGmailAddress } from '@/features/auth/utils/is-gmail-address';
+import { loginUser } from '@/services/authService';
 import {
   Colors,
   Fonts,
@@ -18,9 +22,59 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
 
-  function enterApp() {
-    router.replace('/(tabs)');
+  function showComingSoonAlert(featureName: string) {
+    Alert.alert(`${featureName} Unavailable`, `Please use email and password for now.`);
+  }
+
+  function handleEmailChange(value: string) {
+    setEmail(value);
+  }
+
+  function handlePasswordChange(value: string) {
+    setPassword(value);
+  }
+
+  async function handleLogin() {
+    const nextErrors: typeof errors = {};
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      nextErrors.email = 'Please enter your email address.';
+    } else if (!isGmailAddress(normalizedEmail)) {
+      nextErrors.email = 'Please enter a valid Gmail address ending with @gmail.com.';
+    }
+
+    if (!password) {
+      nextErrors.password = 'Please enter your password.';
+    } else if (password.length < 6) {
+      nextErrors.password = 'Your password must be at least 6 characters.';
+    }
+
+    if (nextErrors.email || nextErrors.password) {
+      setErrors(nextErrors);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      await loginUser(normalizedEmail, password);
+      router.replace('/(tabs)');
+    } catch (error) {
+      const authError = getLoginAuthError(error);
+      setErrors({ [authError.field]: authError.message });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -32,6 +86,7 @@ export default function LoginScreen() {
           <Text style={styles.footerText}>Don&apos;t have an account? </Text>
           <HapticPressable
             accessibilityRole="button"
+            disabled={isLoading}
             hapticType="selection"
             onPress={() => router.push('/signup')}>
             <Text style={styles.footerLink}>Sign Up</Text>
@@ -42,27 +97,50 @@ export default function LoginScreen() {
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Email</Text>
           <AuthInput
+            editable={!isLoading}
+            errorMessage={errors.email}
             iconName="email-outline"
             keyboardType="email-address"
-            placeholder="your.email@example.com"
+            onChangeText={handleEmailChange}
+            placeholder="your.email@gmail.com"
+            value={email}
           />
         </View>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Password</Text>
-          <AuthInput iconName="lock-outline" placeholder="Enter your password" secureTextEntry />
+          <AuthInput
+            editable={!isLoading}
+            errorMessage={errors.password}
+            iconName="lock-outline"
+            onChangeText={handlePasswordChange}
+            placeholder="Enter your password"
+            secureTextEntry
+            value={password}
+          />
         </View>
 
-        <HapticPressable accessibilityRole="button" hapticType="selection" style={styles.forgotWrap}>
+        <HapticPressable
+          accessibilityRole="button"
+          disabled={isLoading}
+          hapticType="selection"
+          onPress={() => showComingSoonAlert('Forgot Password')}
+          style={styles.forgotWrap}>
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </HapticPressable>
 
         <HapticPressable
           accessibilityRole="button"
+          disabled={isLoading}
           hapticType="medium"
-          onPress={enterApp}
-          style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Log In</Text>
+          onPress={handleLogin}
+          style={[styles.primaryButton, isLoading && styles.disabledButton]}>
+          <View style={styles.buttonContent}>
+            {isLoading ? (
+              <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+            ) : null}
+            <Text style={styles.primaryButtonText}>{isLoading ? 'Logging In...' : 'Log In'}</Text>
+          </View>
         </HapticPressable>
 
         <View style={styles.dividerRow}>
@@ -75,12 +153,7 @@ export default function LoginScreen() {
           <AuthSocialButton
             iconName="google"
             label="Continue with Google"
-            onPress={enterApp}
-          />
-          <AuthSocialButton
-            iconName="apple"
-            label="Continue with Apple"
-            onPress={enterApp}
+            onPress={() => showComingSoonAlert('Google Sign-In')}
           />
         </View>
       </View>
@@ -107,7 +180,7 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   forgotText: {
-    color: Colors.brand.primary,
+    color: Colors.brand.primaryDark,
     fontSize: FontSizes.sm,
     lineHeight: LineHeights.sm,
     fontFamily: Fonts.sans,
@@ -116,10 +189,19 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 50,
     borderRadius: Radii.lg,
-    backgroundColor: Colors.brand.primary,
+    backgroundColor: Colors.brand.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     ...Shadows.button,
+  },
+  disabledButton: {
+    opacity: 0.8,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
   },
   primaryButtonText: {
     color: Colors.brand.onPrimary,
@@ -160,7 +242,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
   footerLink: {
-    color: Colors.brand.primary,
+    color: Colors.brand.primaryDark,
     fontSize: FontSizes.sm,
     lineHeight: LineHeights.sm,
     fontFamily: Fonts.sans,

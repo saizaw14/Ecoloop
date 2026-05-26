@@ -1,12 +1,12 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Image } from 'expo-image';
 import {
-  Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableWithoutFeedback,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,36 +36,48 @@ export function AuthScreenShell({
   subtitle,
   title,
 }: AuthScreenShellProps) {
+  function handleDismissKeyboard() {
+    TextInput.State.blurTextInput(TextInput.State.currentlyFocusedInput());
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-        <View style={styles.contentContainer}>
-          <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
-            <KeyboardAvoidingView
-              style={styles.keyboardContainer}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <View style={styles.mainContent}>
-                <View style={styles.headerBlock}>
-                  <View style={styles.logoWrap}>
-                    <Image
-                      source={AppImages.ecoloopLogo}
-                      contentFit="contain"
-                      style={styles.logo}
-                    />
-                  </View>
-
-                  <View style={styles.textBlock}>
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.subtitle}>{subtitle}</Text>
-                  </View>
+      <View style={styles.contentContainer}>
+        <Pressable
+          accessible={false}
+          onPressIn={handleDismissKeyboard}
+          style={styles.dismissLayer}
+        />
+        <KeyboardAvoidingView
+          pointerEvents="box-none"
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View pointerEvents="box-none" style={styles.screenStack}>
+            <View pointerEvents="box-none" style={styles.mainContent}>
+              <View pointerEvents="none" style={styles.headerBlock}>
+                <View style={styles.logoWrap}>
+                  <Image
+                    source={AppImages.ecoloopLogo}
+                    contentFit="contain"
+                    style={styles.logo}
+                  />
                 </View>
 
-                <View style={styles.formCard}>{children}</View>
+                <View style={styles.textBlock}>
+                  <Text style={styles.title}>{title}</Text>
+                  <Text style={styles.subtitle}>{subtitle}</Text>
+                </View>
               </View>
-            </KeyboardAvoidingView>
-          </TouchableWithoutFeedback>
-          {footer ? <View style={styles.footerSlot}>{footer}</View> : null}
-        </View>
+
+              <View pointerEvents="box-none" style={styles.formCard}>
+                {children}
+              </View>
+            </View>
+            {footer ? <View style={styles.footerSlot}>{footer}</View> : null}
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -83,10 +95,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xl,
-    justifyContent: 'space-between',
+  },
+  dismissLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  screenStack: {
+    flex: 1,
+    minHeight: 0,
   },
   mainContent: {
     gap: Spacing.xl,
+    flexShrink: 1,
+    minHeight: 0,
   },
   headerBlock: {
     alignItems: 'center',
@@ -125,6 +145,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   footerSlot: {
+    marginTop: 'auto',
     paddingTop: Spacing.md,
   },
 });
