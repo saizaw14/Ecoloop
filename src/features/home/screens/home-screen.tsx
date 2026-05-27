@@ -20,6 +20,7 @@ import {
   Radii,
   Spacing,
 } from '@/constants/theme';
+import { categoriesOverviewIconName } from '@/features/categories/data/category-content';
 import { auth, db } from '@/firebase/firebaseConfig';
 
 type ShortcutCard = {
@@ -68,8 +69,8 @@ const shortcutCards: ShortcutCard[] = [
   },
   {
     accentColor: '#14B8A6',
-    href: '/categories',
-    iconName: 'recycle',
+    href: '/categories' as Href,
+    iconName: categoriesOverviewIconName,
     subtitle: 'Learn recycling',
     title: 'Categories',
   },

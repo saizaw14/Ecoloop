@@ -1,0 +1,38 @@
+{
+  "category": "metal",
+  "name": "Metal",
+  "icon": "🥫",
+  "color": "text-gray-600",
+  "bgColor": "bg-gray-500",
+  "recyclable": true,
+  "description": "Aluminum and steel cans are highly recyclable. Rinse before recycling.",
+  "accepted": [
+    "Aluminum cans",
+    "Tin cans",
+    "Steel cans",
+    "Metal lids",
+    "Aluminum foil",
+    "Metal containers"
+  ],
+  "notAccepted": [
+    "Scrap metal",
+    "Hangers",
+    "Pots and pans",
+    "Propane tanks",
+    "Paint cans with residue"
+  ],
+  "preparationSteps": [
+    "Empty completely",
+    "Rinse out food residue",
+    "Crush cans to save space",
+    "Labels can stay on",
+    "Keep lids attached or separate"
+  ],
+  "tips": [
+    "Aluminum can be recycled infinitely",
+    "Recycling aluminum saves 95% energy",
+    "Rinse pet food cans",
+    "Magnets stick to steel, not aluminum"
+  ],
+  "environmentalImpact": "Recycling one aluminum can saves enough energy to power a TV for 3 hours."
+}

@@ -1,0 +1,38 @@
+{
+  "category": "glass",
+  "name": "Glass",
+  "icon": "🫙",
+  "color": "text-teal-600",
+  "bgColor": "bg-teal-500",
+  "recyclable": true,
+  "description": "Glass containers can be recycled endlessly without loss of quality. Rinse before recycling.",
+  "accepted": [
+    "Glass bottles",
+    "Glass jars",
+    "Wine bottles",
+    "Beer bottles",
+    "Food jars"
+  ],
+  "notAccepted": [
+    "Window glass",
+    "Mirrors",
+    "Light bulbs",
+    "Drinking glasses",
+    "Ceramics",
+    "Pyrex"
+  ],
+  "preparationSteps": [
+    "Empty all contents",
+    "Rinse thoroughly",
+    "Remove metal lids (recycle separately)",
+    "Labels can stay on",
+    "No need to remove broken glass"
+  ],
+  "tips": [
+    "Glass can be recycled infinitely",
+    "Different colors can be mixed",
+    "No need to remove labels",
+    "Keep separate from ceramics"
+  ],
+  "environmentalImpact": "Recycling glass uses 40% less energy than making new glass and reduces CO₂ emissions."
+}

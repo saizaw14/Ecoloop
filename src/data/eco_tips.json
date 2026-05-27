@@ -1,0 +1,294 @@
+{
+  "tips": [
+    {
+      "id": 1,
+      "title": "Rinse Before Recycling",
+      "description": "Always rinse food containers before recycling. Contaminated recyclables can spoil entire batches and may end up in landfills instead.",
+      "category": "Recycling Basics",
+      "icon": "💧"
+    },
+    {
+      "id": 2,
+      "title": "Know Your Plastics",
+      "description": "Not all plastics are recyclable. Check the number inside the recycling symbol. Types 1 and 2 are most commonly accepted.",
+      "category": "Material Guide",
+      "icon": "♻️"
+    },
+    {
+      "id": 3,
+      "title": "Flatten Cardboard",
+      "description": "Breaking down cardboard boxes saves space in recycling bins and trucks, making the recycling process more efficient.",
+      "category": "Best Practices",
+      "icon": "📦"
+    },
+    {
+      "id": 4,
+      "title": "Keep Paper Dry",
+      "description": "Wet paper cannot be recycled. Store paper recyclables in a dry place to ensure they can be properly processed.",
+      "category": "Paper Tips",
+      "icon": "📄"
+    },
+    {
+      "id": 5,
+      "title": "Remove Caps and Lids",
+      "description": "Bottle caps and lids are often made from different materials. Remove them and recycle separately when possible.",
+      "category": "Recycling Basics",
+      "icon": "🔴"
+    },
+    {
+      "id": 6,
+      "title": "Compost Food Waste",
+      "description": "Food scraps make up about 30% of household waste. Composting reduces landfill waste and creates nutrient-rich soil.",
+      "category": "Composting",
+      "icon": "🌱"
+    },
+    {
+      "id": 7,
+      "title": "E-Waste Matters",
+      "description": "Electronics contain valuable materials and harmful substances. Always take e-waste to designated collection points.",
+      "category": "E-Waste",
+      "icon": "🔌"
+    },
+    {
+      "id": 8,
+      "title": "Reduce First",
+      "description": "The best waste is no waste. Before recycling, consider if you can reduce consumption or reuse items.",
+      "category": "Zero Waste",
+      "icon": "🌍"
+    },
+    {
+      "id": 9,
+      "title": "Glass is Forever",
+      "description": "Glass can be recycled endlessly without loss of quality. A single glass bottle saves enough energy to power a computer for 25 minutes.",
+      "category": "Material Guide",
+      "icon": "🫙"
+    },
+    {
+      "id": 10,
+      "title": "Check Local Guidelines",
+      "description": "Recycling rules vary by location. Check your local recycling program to know what they accept.",
+      "category": "Best Practices",
+      "icon": "📋"
+    },
+    {
+      "id": 11,
+      "title": "Avoid Plastic Bags in Recycling",
+      "description": "Plastic bags can get tangled in recycling machines. Reuse them when possible or bring them to special plastic bag collection points.",
+      "category": "Recycling Basics",
+      "icon": "🛍️"
+    },
+    {
+      "id": 12,
+      "title": "Do Not Recycle Greasy Pizza Boxes",
+      "description": "Food grease can contaminate cardboard. Tear off the clean parts for recycling and dispose of greasy sections separately.",
+      "category": "Paper Tips",
+      "icon": "🍕"
+    },
+    {
+      "id": 13,
+      "title": "Use a Reusable Water Bottle",
+      "description": "Carrying a reusable bottle helps reduce single-use plastic waste and supports a more sustainable daily routine.",
+      "category": "Zero Waste",
+      "icon": "🚰"
+    },
+    {
+      "id": 14,
+      "title": "Separate Batteries Safely",
+      "description": "Batteries should not be placed in normal recycling bins. Take them to battery collection points to prevent leaks and fire risks.",
+      "category": "E-Waste",
+      "icon": "🔋"
+    },
+    {
+      "id": 15,
+      "title": "Reuse Glass Jars",
+      "description": "Glass jars can be reused for storage, food containers, or small home organization before being recycled.",
+      "category": "Zero Waste",
+      "icon": "🫙"
+    },
+    {
+      "id": 16,
+      "title": "Sort Waste at Home",
+      "description": "Set up separate bins for paper, plastic, metal, glass, and general waste to make recycling easier and more consistent.",
+      "category": "Best Practices",
+      "icon": "🗂️"
+    },
+    {
+      "id": 17,
+      "title": "Check for Food Residue",
+      "description": "Before recycling containers, make sure they are mostly empty and free from leftover food or liquids.",
+      "category": "Recycling Basics",
+      "icon": "🥫"
+    },
+    {
+      "id": 18,
+      "title": "Donate Usable Items",
+      "description": "Clothes, books, toys, and small household items that are still usable can be donated instead of thrown away.",
+      "category": "Zero Waste",
+      "icon": "🎁"
+    },
+    {
+      "id": 19,
+      "title": "Recycle Metal Cans",
+      "description": "Aluminium and steel cans are commonly recyclable. Rinse them first and place them in the correct recycling bin.",
+      "category": "Material Guide",
+      "icon": "🥫"
+    },
+    {
+      "id": 20,
+      "title": "Avoid Mixing Hazardous Waste",
+      "description": "Paint, chemicals, pesticides, and medical waste should not be mixed with regular household waste or recycling.",
+      "category": "Best Practices",
+      "icon": "⚠️"
+    },
+    {
+      "id": 21,
+      "title": "Bring Your Own Shopping Bag",
+      "description": "Using reusable shopping bags reduces the need for single-use plastic bags and helps cut down plastic pollution.",
+      "category": "Zero Waste",
+      "icon": "🛒"
+    },
+    {
+      "id": 22,
+      "title": "Recycle Old Phones Properly",
+      "description": "Old phones contain valuable metals and electronic parts. Send them to certified e-waste recycling points instead of throwing them away.",
+      "category": "E-Waste",
+      "icon": "📱"
+    },
+    {
+      "id": 23,
+      "title": "Keep Recycling Bins Clean",
+      "description": "A clean recycling bin helps prevent bad smells, pests, and contamination of recyclable materials.",
+      "category": "Best Practices",
+      "icon": "🧼"
+    },
+    {
+      "id": 24,
+      "title": "Avoid Wishcycling",
+      "description": "Do not place items in the recycling bin just because you hope they are recyclable. Check the rules first to avoid contamination.",
+      "category": "Recycling Basics",
+      "icon": "❓"
+    },
+    {
+      "id": 25,
+      "title": "Reuse Old Clothes",
+      "description": "Old clothes can be reused as cleaning cloths, donated, repaired, or sent to textile recycling programs.",
+      "category": "Zero Waste",
+      "icon": "👕"
+    },
+    {
+      "id": 26,
+      "title": "Compost Fruit Peels",
+      "description": "Fruit and vegetable peels can be composted to reduce food waste and create useful nutrients for plants.",
+      "category": "Composting",
+      "icon": "🍌"
+    },
+    {
+      "id": 27,
+      "title": "Avoid Disposable Cutlery",
+      "description": "Carry reusable cutlery or request no disposable utensils when ordering food to reduce plastic waste.",
+      "category": "Zero Waste",
+      "icon": "🍴"
+    },
+    {
+      "id": 28,
+      "title": "Recycle Clean Paper Only",
+      "description": "Paper with food stains, oil, or heavy dirt may not be recyclable. Keep paper clean and dry before recycling.",
+      "category": "Paper Tips",
+      "icon": "📰"
+    },
+    {
+      "id": 29,
+      "title": "Crush Plastic Bottles",
+      "description": "Crushing plastic bottles can save space in your recycling bin, but check local guidelines because some facilities prefer bottles uncrushed.",
+      "category": "Material Guide",
+      "icon": "🧴"
+    },
+    {
+      "id": 30,
+      "title": "Use Refillable Containers",
+      "description": "Refillable containers for soap, shampoo, and cleaning products help reduce packaging waste over time.",
+      "category": "Zero Waste",
+      "icon": "🧴"
+    },
+    {
+      "id": 31,
+      "title": "Separate Glass by Local Rules",
+      "description": "Some recycling programs require glass to be separated by color, while others accept mixed glass. Always check local rules.",
+      "category": "Material Guide",
+      "icon": "🍾"
+    },
+    {
+      "id": 32,
+      "title": "Do Not Recycle Broken Ceramics",
+      "description": "Ceramic plates, mugs, and tiles are different from glass bottles and usually cannot go into normal glass recycling bins.",
+      "category": "Material Guide",
+      "icon": "☕"
+    },
+    {
+      "id": 33,
+      "title": "Reduce Food Waste",
+      "description": "Plan meals, store food properly, and use leftovers to reduce the amount of food that ends up in the trash.",
+      "category": "Composting",
+      "icon": "🍽️"
+    },
+    {
+      "id": 34,
+      "title": "Label Your Home Bins",
+      "description": "Clear labels on your home bins make it easier for family members to sort waste correctly.",
+      "category": "Best Practices",
+      "icon": "🏷️"
+    },
+    {
+      "id": 35,
+      "title": "Avoid Single-Use Cups",
+      "description": "Bring a reusable cup when buying coffee or drinks to reduce disposable cup waste.",
+      "category": "Zero Waste",
+      "icon": "🥤"
+    },
+    {
+      "id": 36,
+      "title": "Recycle Printer Cartridges",
+      "description": "Printer ink and toner cartridges should be returned to collection programs or recycling centers instead of regular bins.",
+      "category": "E-Waste",
+      "icon": "🖨️"
+    },
+    {
+      "id": 37,
+      "title": "Remove Tape from Cardboard",
+      "description": "Remove excess plastic tape, labels, or packing materials from cardboard boxes before recycling when possible.",
+      "category": "Paper Tips",
+      "icon": "📦"
+    },
+    {
+      "id": 38,
+      "title": "Buy Products with Less Packaging",
+      "description": "Choosing products with minimal or recyclable packaging helps reduce waste before it is created.",
+      "category": "Zero Waste",
+      "icon": "🛍️"
+    },
+    {
+      "id": 39,
+      "title": "Recycle Light Bulbs Properly",
+      "description": "Some light bulbs contain materials that need special handling. Take them to proper collection points instead of normal bins.",
+      "category": "E-Waste",
+      "icon": "💡"
+    },
+    {
+      "id": 40,
+      "title": "Make Recycling a Daily Habit",
+      "description": "Recycling works best when it becomes part of your daily routine. Start small by sorting one or two waste types consistently.",
+      "category": "Best Practices",
+      "icon": "✅"
+    }
+  ],
+  "totalTips": 40,
+  "categories": [
+    "Recycling Basics",
+    "Material Guide",
+    "Best Practices",
+    "Paper Tips",
+    "Composting",
+    "E-Waste",
+    "Zero Waste"
+  ]
+}

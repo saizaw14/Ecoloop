@@ -31,6 +31,7 @@ export async function registerUser({ name, email, password }: RegisterInput) {
     uid: user.uid,
     name: trimmedName,
     email: user.email,
+    savedTipIds: [],
     totalScans: 0,
     totalEcoPoints: 0,
     totalCO2Saved: 0,

@@ -1,0 +1,36 @@
+{
+  "category": "e-waste",
+  "name": "E-Waste",
+  "icon": "🔌",
+  "color": "text-purple-600",
+  "bgColor": "bg-purple-500",
+  "recyclable": true,
+  "description": "Electronic waste must be taken to specialized recycling facilities. Never throw in regular trash.",
+  "accepted": [
+    "Phones",
+    "Computers",
+    "Batteries",
+    "Chargers",
+    "Cables",
+    "Small appliances"
+  ],
+  "notAccepted": [
+    "Large appliances (special pickup needed)",
+    "Hazardous materials",
+    "CRT monitors (special handling)"
+  ],
+  "preparationSteps": [
+    "Remove all batteries",
+    "Delete personal data",
+    "Remove SIM cards",
+    "Keep accessories together",
+    "Find certified e-waste recycler"
+  ],
+  "tips": [
+    "Contains valuable materials",
+    "Data security is important",
+    "Check for trade-in programs",
+    "Never burn electronics"
+  ],
+  "environmentalImpact": "E-waste contains precious metals and toxic materials. Proper recycling recovers valuable resources and prevents pollution."
+}
