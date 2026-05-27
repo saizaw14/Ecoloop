@@ -1,12 +1,11 @@
 import type { ComponentProps } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+import cardboardData from '@/data/categories/cardboard.json';
 import categoriesIndex from '@/data/categories/index.json';
-import ewasteData from '@/data/categories/ewaste.json';
 import generalWasteData from '@/data/categories/generalwaste.json';
 import glassData from '@/data/categories/glass.json';
 import metalData from '@/data/categories/metal.json';
-import organicData from '@/data/categories/organic.json';
 import paperData from '@/data/categories/paper.json';
 import plasticData from '@/data/categories/plastic.json';
 
@@ -38,10 +37,9 @@ export const categoriesOverviewIconName: ComponentProps<
 const categorySourceMap = {
   plastic: plasticData,
   paper: paperData,
+  cardboard: cardboardData,
   glass: glassData,
   metal: metalData,
-  organic: organicData,
-  'e-waste': ewasteData,
   general: generalWasteData,
 } as const satisfies Record<string, CategorySource>;
 
@@ -62,6 +60,14 @@ const categoryPresentationMap = {
     previewDescription: 'Paper products, cardboard, and clean packaging',
     previewTags: ['Cardboard', 'Newspapers', 'Magazines'],
   },
+  cardboard: {
+    accentColor: '#D97706',
+    detailSubtitle: '0 items sorted',
+    iconBackgroundColor: '#D97706',
+    iconName: 'package-variant-closed',
+    previewDescription: 'Boxes, cartons, and clean cardboard packaging',
+    previewTags: ['Boxes', 'Cartons', 'Tubes'],
+  },
   glass: {
     accentColor: '#14B8A6',
     detailSubtitle: '0 items sorted',
@@ -78,29 +84,13 @@ const categoryPresentationMap = {
     previewDescription: 'Aluminum cans, steel cans, and metal containers',
     previewTags: ['Cans', 'Foil', 'Containers'],
   },
-  organic: {
-    accentColor: '#22C55E',
-    detailSubtitle: '0 items sorted',
-    iconBackgroundColor: '#22C55E',
-    iconName: 'food-apple-outline',
-    previewDescription: 'Food scraps, yard waste, and compostable materials',
-    previewTags: ['Scraps', 'Yard Waste', 'Coffee Grounds'],
-  },
-  'e-waste': {
-    accentColor: '#A855F7',
-    detailSubtitle: '0 items sorted',
-    iconBackgroundColor: '#A855F7',
-    iconName: 'power-plug-outline',
-    previewDescription: 'Electronic devices and components',
-    previewTags: ['Phones', 'Batteries', 'Chargers'],
-  },
   general: {
     accentColor: '#FF3B30',
     detailSubtitle: '0 items sorted',
     iconBackgroundColor: '#FF3B30',
     iconName: 'trash-can-outline',
-    previewDescription: 'Non-recyclable waste items',
-    previewTags: ['Mixed Materials', 'Contaminated Items', 'Other Waste'],
+    previewDescription: 'Non-recyclable items that belong in the trash',
+    previewTags: ['Mixed Materials', 'Contaminated Items', 'Trash'],
   },
 } as const satisfies Record<keyof typeof categorySourceMap, CategoryPresentation>;
 
