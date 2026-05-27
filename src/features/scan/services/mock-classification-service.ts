@@ -42,6 +42,14 @@ const mockClassificationTemplates: MockClassificationTemplate[] = [
     nextStep: 'Keep it dry and flatten it if possible before placing it in paper recycling.',
   },
   {
+    slug: 'cardboard',
+    confidenceMin: 90,
+    confidenceMax: 97,
+    co2SavedKg: 0.16,
+    summary: 'This looks like a cardboard box or paperboard packaging item.',
+    nextStep: 'Flatten it, keep it dry, and remove extra plastic or foam inserts before recycling.',
+  },
+  {
     slug: 'glass',
     confidenceMin: 89,
     confidenceMax: 96,
@@ -58,28 +66,12 @@ const mockClassificationTemplates: MockClassificationTemplate[] = [
     nextStep: 'Rinse away residue and place it with clean metal recyclables.',
   },
   {
-    slug: 'organic',
-    confidenceMin: 87,
-    confidenceMax: 94,
-    co2SavedKg: 0.18,
-    summary: 'This resembles food or compostable organic waste.',
-    nextStep: 'Add it to compost or organic waste collection instead of mixed trash.',
-  },
-  {
-    slug: 'e-waste',
-    confidenceMin: 90,
-    confidenceMax: 97,
-    co2SavedKg: 0.35,
-    summary: 'This appears to be an electronic accessory or device component.',
-    nextStep: 'Do not put it in regular bins. Bring it to a designated e-waste drop-off point.',
-  },
-  {
     slug: 'general',
     confidenceMin: 85,
     confidenceMax: 92,
     co2SavedKg: 0,
-    summary: 'This seems more suitable for general waste than recycling.',
-    nextStep: 'Dispose of it in general waste unless local guidelines offer a specialist stream.',
+    summary: 'This seems more suitable for the trash than the recycling stream.',
+    nextStep: 'Dispose of it in the trash unless local guidelines offer a specialist disposal stream.',
   },
 ];
 

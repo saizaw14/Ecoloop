@@ -1,0 +1,38 @@
+{
+  "category": "cardboard",
+  "name": "Cardboard",
+  "icon": "📦",
+  "color": "text-amber-700",
+  "bgColor": "bg-amber-500",
+  "recyclable": true,
+  "description": "Cardboard is a recyclable paper-based material commonly used for boxes and packaging. Keep it clean, dry, and flattened before recycling.",
+  "accepted": [
+    "Delivery boxes",
+    "Packaging boxes",
+    "Cereal boxes",
+    "Shoe boxes",
+    "Cardboard tubes",
+    "Paperboard packaging"
+  ],
+  "notAccepted": [
+    "Greasy pizza boxes",
+    "Wet cardboard",
+    "Wax-coated cardboard",
+    "Food-contaminated cardboard",
+    "Cardboard mixed with plastic or foam"
+  ],
+  "preparationSteps": [
+    "Flatten boxes before recycling",
+    "Remove plastic tape or packaging materials if possible",
+    "Keep cardboard clean and dry",
+    "Remove food residue",
+    "Place in the paper or cardboard recycling bin"
+  ],
+  "tips": [
+    "Flatten cardboard to save bin space",
+    "Reuse boxes for storage before recycling",
+    "Wet cardboard is harder to recycle",
+    "Remove bubble wrap, foam, or plastic inserts first"
+  ],
+  "environmentalImpact": "Recycling cardboard reduces landfill waste and helps save trees, water, and energy used in paper production."
+}

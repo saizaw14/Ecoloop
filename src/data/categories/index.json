@@ -2,12 +2,11 @@
   "categories": [
     "plastic",
     "paper",
+    "cardboard",
     "glass",
     "metal",
-    "organic",
-    "e-waste",
     "general"
   ],
-  "totalCategories": 7,
+  "totalCategories": 6,
   "description": "Complete waste category data for EcoLoop recycling application"
 }

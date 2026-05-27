@@ -150,7 +150,7 @@ export default function ScanResultScreen() {
                   result.recyclable ? styles.recyclableChip : styles.generalChip,
                 ]}>
                 <Text style={styles.statusChipText}>
-                  {result.recyclable ? 'Recyclable' : 'General Waste'}
+                  {result.recyclable ? 'Recyclable' : result.categoryName}
                 </Text>
               </View>
             </View>

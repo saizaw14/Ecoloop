@@ -1,11 +1,11 @@
 {
   "category": "general",
-  "name": "General Waste",
+  "name": "Trash",
   "icon": "🗑️",
   "color": "text-red-600",
   "bgColor": "bg-red-500",
   "recyclable": false,
-  "description": "Items that cannot be recycled should be properly disposed of in general waste.",
+  "description": "Items that cannot be recycled should be properly disposed of in the trash.",
   "accepted": [
     "Contaminated materials",
     "Mixed materials",
@@ -30,5 +30,5 @@
     "Check local disposal guidelines",
     "Minimize single-use items"
   ],
-  "environmentalImpact": "Reducing general waste helps decrease landfill usage and environmental impact."
+  "environmentalImpact": "Reducing trash sent to landfill helps decrease environmental impact and waste buildup."
 }
