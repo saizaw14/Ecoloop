@@ -6,7 +6,7 @@ import { useRouter, type Href } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppImages } from '@/assets/images';
@@ -152,101 +152,101 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}>
-        <View style={styles.heroSection}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.heroTitle}>{profile.displayName}</Text>
-            <Text style={styles.heroSubtitle}>Ready to make a difference today?</Text>
+      <View style={styles.screen}>
+        <View style={styles.contentContainer}>
+          <View style={styles.heroSection}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.welcomeText}>Welcome back,</Text>
+              <Text style={styles.heroTitle}>{profile.displayName}</Text>
+              <Text style={styles.heroSubtitle}>Ready to make a difference today?</Text>
+            </View>
+
+            <HapticPressable
+              accessibilityRole="button"
+              hapticType="selection"
+              onPress={() => router.push('/profile')}
+              style={styles.heroAvatarButton}>
+              <Image
+                source={AppImages.ecoloopLogoHeader}
+                contentFit="contain"
+                style={styles.heroAvatar}
+              />
+            </HapticPressable>
+          </View>
+
+          <View style={styles.pointsCard}>
+            <View pointerEvents="none" style={styles.pointsCardGlowOne} />
+            <View pointerEvents="none" style={styles.pointsCardGlowTwo} />
+            <View pointerEvents="none" style={styles.pointsCardSheen} />
+
+            <View style={styles.pointsCardContent}>
+              <View style={styles.pointsHeader}>
+                <View style={styles.pointsSummary}>
+                  <Text style={styles.pointsLabel}>Total Eco Points</Text>
+                  <Text style={styles.pointsValue}>{profile.totalEcoPoints}</Text>
+                </View>
+              </View>
+
+              <View style={styles.pointsDivider} />
+
+              <View style={styles.pointsStatsRow}>
+                <View style={styles.pointsStatItem}>
+                  <Text style={styles.pointsStatLabel}>Items Sorted</Text>
+                  <Text style={styles.pointsStatValue}>{profile.totalScans}</Text>
+                </View>
+
+                <View style={styles.pointsStatItem}>
+                  <Text style={styles.pointsStatLabel}>CO2 Saved</Text>
+                  <Text style={styles.pointsStatValue}>{profile.totalCO2Saved.toFixed(1)}kg</Text>
+                </View>
+              </View>
+            </View>
           </View>
 
           <HapticPressable
             accessibilityRole="button"
-            hapticType="selection"
-            onPress={() => router.push('/profile')}
-            style={styles.heroAvatarButton}>
-            <Image
-              source={AppImages.ecoloopLogoHeader}
-              contentFit="contain"
-              style={styles.heroAvatar}
+            hapticType="medium"
+            onPress={() => router.push('/scan')}
+            style={styles.scanButton}>
+            <MaterialCommunityIcons
+              name="camera-outline"
+              size={20}
+              color={Colors.brand.onPrimary}
             />
+            <Text style={styles.scanButtonText}>Scan Waste Item</Text>
           </HapticPressable>
-        </View>
 
-        <View style={styles.pointsCard}>
-          <View pointerEvents="none" style={styles.pointsCardGlowOne} />
-          <View pointerEvents="none" style={styles.pointsCardGlowTwo} />
-          <View pointerEvents="none" style={styles.pointsCardSheen} />
+          <View style={styles.shortcutGrid}>
+            {shortcutCards.map((card) => {
+              const href = card.href;
 
-          <View style={styles.pointsCardContent}>
-            <View style={styles.pointsHeader}>
-              <View style={styles.pointsSummary}>
-                <Text style={styles.pointsLabel}>Total Eco Points</Text>
-                <Text style={styles.pointsValue}>{profile.totalEcoPoints}</Text>
-              </View>
-            </View>
+              return (
+                <HapticPressable
+                  key={card.title}
+                  accessibilityRole="button"
+                  disabled={!href}
+                  hapticType="selection"
+                  onPress={href ? () => router.push(href) : undefined}
+                  style={({ pressed }) => [
+                    styles.shortcutCard,
+                    pressed && href ? styles.shortcutCardPressed : null,
+                  ]}>
+                  <View style={[styles.shortcutIconWrap, { backgroundColor: card.accentColor }]}>
+                    <MaterialCommunityIcons
+                      name={card.iconName}
+                      size={22}
+                      color={Colors.brand.onPrimary}
+                    />
+                  </View>
 
-            <View style={styles.pointsDivider} />
-
-            <View style={styles.pointsStatsRow}>
-              <View style={styles.pointsStatItem}>
-                <Text style={styles.pointsStatLabel}>Items Sorted</Text>
-                <Text style={styles.pointsStatValue}>{profile.totalScans}</Text>
-              </View>
-
-              <View style={styles.pointsStatItem}>
-                <Text style={styles.pointsStatLabel}>CO2 Saved</Text>
-                <Text style={styles.pointsStatValue}>{profile.totalCO2Saved.toFixed(1)}kg</Text>
-              </View>
-            </View>
+                  <Text style={styles.shortcutTitle}>{card.title}</Text>
+                  <Text style={styles.shortcutSubtitle}>{card.subtitle}</Text>
+                </HapticPressable>
+              );
+            })}
           </View>
         </View>
-
-        <HapticPressable
-          accessibilityRole="button"
-          hapticType="medium"
-          onPress={() => router.push('/scan')}
-          style={styles.scanButton}>
-          <MaterialCommunityIcons
-            name="camera-outline"
-            size={20}
-            color={Colors.brand.onPrimary}
-          />
-          <Text style={styles.scanButtonText}>Scan Waste Item</Text>
-        </HapticPressable>
-
-        <View style={styles.shortcutGrid}>
-          {shortcutCards.map((card) => {
-            const href = card.href;
-
-            return (
-              <HapticPressable
-                key={card.title}
-                accessibilityRole="button"
-                disabled={!href}
-                hapticType="selection"
-                onPress={href ? () => router.push(href) : undefined}
-                style={({ pressed }) => [
-                  styles.shortcutCard,
-                  pressed && href ? styles.shortcutCardPressed : null,
-                ]}>
-                <View style={[styles.shortcutIconWrap, { backgroundColor: card.accentColor }]}>
-                  <MaterialCommunityIcons
-                    name={card.iconName}
-                    size={22}
-                    color={Colors.brand.onPrimary}
-                  />
-                </View>
-
-                <Text style={styles.shortcutTitle}>{card.title}</Text>
-                <Text style={styles.shortcutSubtitle}>{card.subtitle}</Text>
-              </HapticPressable>
-            );
-          })}
-        </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -256,7 +256,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.brand.authBackground,
   },
+  screen: {
+    flex: 1,
+  },
   contentContainer: {
+    flex: 1,
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.lg,
     paddingBottom: 120,
