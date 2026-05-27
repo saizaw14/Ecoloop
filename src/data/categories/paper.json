@@ -1,0 +1,39 @@
+{
+  "category": "paper",
+  "name": "Paper",
+  "icon": "📄",
+  "color": "text-amber-600",
+  "bgColor": "bg-amber-500",
+  "recyclable": true,
+  "description": "Clean, dry paper products can be recycled. Contaminated or wet paper cannot be recycled.",
+  "accepted": [
+    "Cardboard boxes",
+    "Newspapers",
+    "Magazines",
+    "Office paper",
+    "Envelopes",
+    "Paper bags"
+  ],
+  "notAccepted": [
+    "Pizza boxes (greasy)",
+    "Paper towels",
+    "Napkins",
+    "Wax-coated paper",
+    "Tissue paper",
+    "Wet paper"
+  ],
+  "preparationSteps": [
+    "Remove all tape and staples",
+    "Flatten cardboard boxes",
+    "Keep paper dry",
+    "Remove plastic windows from envelopes",
+    "Keep clean from food"
+  ],
+  "tips": [
+    "Paper can be recycled 5-7 times",
+    "Shred sensitive documents",
+    "Bundle newspapers together",
+    "Keep separate from other recyclables"
+  ],
+  "environmentalImpact": "Recycling 1 ton of paper saves 17 trees, 7,000 gallons of water, and 463 gallons of oil."
+}

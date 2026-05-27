@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/navigation/haptic-tab';
 import { ScanTabButton } from '@/components/navigation/scan-tab-button';
@@ -11,6 +12,8 @@ import {
 } from '@/constants/theme';
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
@@ -22,7 +25,13 @@ export default function TabLayout() {
         tabBarIconStyle: styles.tabBarIcon,
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            height: 72 + insets.bottom,
+            paddingBottom: Math.max(insets.bottom, 8),
+          },
+        ],
       }}>
       <Tabs.Screen
         name="index"
@@ -67,6 +76,12 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="categories"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
@@ -79,7 +94,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 8,
+    bottom: 0,
     backgroundColor: Colors.brand.surface,
     borderTopWidth: 1,
     borderTopColor: '#E9EEF4',

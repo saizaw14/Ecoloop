@@ -1,0 +1,38 @@
+{
+  "category": "organic",
+  "name": "Organic",
+  "icon": "🌱",
+  "color": "text-green-600",
+  "bgColor": "bg-green-500",
+  "recyclable": true,
+  "description": "Organic waste can be composted to create nutrient-rich soil. Check local composting guidelines.",
+  "accepted": [
+    "Fruit and vegetable scraps",
+    "Coffee grounds",
+    "Tea bags",
+    "Eggshells",
+    "Yard waste",
+    "Plant trimmings"
+  ],
+  "notAccepted": [
+    "Meat and bones",
+    "Dairy products",
+    "Oils and fats",
+    "Pet waste",
+    "Diseased plants"
+  ],
+  "preparationSteps": [
+    "Separate from other waste",
+    "Remove any packaging",
+    "Cut large items into smaller pieces",
+    "Mix green and brown materials",
+    "Keep moist but not wet"
+  ],
+  "tips": [
+    "Composting reduces methane emissions",
+    "Balances green (nitrogen) and brown (carbon) materials",
+    "Turn compost regularly",
+    "Avoid meat and dairy"
+  ],
+  "environmentalImpact": "Composting reduces landfill waste by 30% and creates valuable soil amendment."
+}

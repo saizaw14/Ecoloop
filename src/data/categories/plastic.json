@@ -1,0 +1,38 @@
+{
+  "category": "plastic",
+  "name": "Plastic",
+  "icon": "♻️",
+  "color": "text-blue-600",
+  "bgColor": "bg-blue-500",
+  "recyclable": true,
+  "description": "Most plastic containers marked with recycling symbols #1 and #2 can be recycled. Always rinse before recycling.",
+  "accepted": [
+    "Water bottles",
+    "Soda bottles",
+    "Milk jugs",
+    "Shampoo bottles",
+    "Detergent containers",
+    "Yogurt cups"
+  ],
+  "notAccepted": [
+    "Plastic bags",
+    "Styrofoam",
+    "Plastic wrap",
+    "Food-contaminated containers",
+    "Black plastic"
+  ],
+  "preparationSteps": [
+    "Empty all contents",
+    "Rinse thoroughly",
+    "Remove labels if easily removable",
+    "Separate caps (recycle separately)",
+    "Flatten to save space"
+  ],
+  "tips": [
+    "Check the recycling number on the bottom",
+    "Never bag recyclables",
+    "Keep plastic dry",
+    "Remove all food residue"
+  ],
+  "environmentalImpact": "Recycling 1 ton of plastic saves 5,774 kWh of energy and prevents 16.3 barrels of oil from being used."
+}
