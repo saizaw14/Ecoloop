@@ -52,7 +52,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
+        name="scan-entry"
         options={{
           title: 'Scan',
           tabBarButton: (props) => <ScanTabButton {...props} />,

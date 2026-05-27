@@ -2,6 +2,7 @@ import { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { PlatformPressable } from '@react-navigation/elements';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useRouter, type Href } from 'expo-router';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import {
@@ -14,16 +15,17 @@ import {
 export function ScanTabButton({
   accessibilityLabel,
   onLongPress,
-  onPress,
   testID,
 }: BottomTabBarButtonProps) {
+  const router = useRouter();
+
   return (
     <View pointerEvents="box-none" style={styles.wrapper}>
       <PlatformPressable
         accessibilityLabel={accessibilityLabel}
         accessibilityRole="button"
         onLongPress={onLongPress}
-        onPress={onPress}
+        onPress={() => router.push('/scan' as Href)}
         onPressIn={() => {
           if (Platform.OS !== 'web') {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
