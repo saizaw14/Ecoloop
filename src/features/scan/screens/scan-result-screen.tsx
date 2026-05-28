@@ -61,7 +61,7 @@ export default function ScanResultScreen() {
           </View>
           <Text style={styles.emptyTitle}>No scan result yet</Text>
           <Text style={styles.emptyBody}>
-            Capture a waste item first so we can show the mock classification result.
+            Capture a waste item first so we can show the real model prediction result.
           </Text>
           <HapticPressable
             accessibilityRole="button"
@@ -96,13 +96,13 @@ export default function ScanResultScreen() {
 
               <View style={styles.headerTitleRow}>
                 <Text style={styles.headerTitle}>Classification Result</Text>
-                <View style={styles.mockBadge}>
-                  <Text style={styles.mockBadgeText}>Mock</Text>
+                <View style={styles.modelBadge}>
+                  <Text style={styles.modelBadgeText}>TFLite</Text>
                 </View>
               </View>
 
               <Text style={styles.headerSubtitle}>
-                This is a sample result flow using mock classification before the real AI model.
+                Prediction generated on-device using your bundled TensorFlow Lite model.
               </Text>
             </View>
 
@@ -199,7 +199,7 @@ export default function ScanResultScreen() {
             </View>
             <Text style={styles.impactBody}>{result.environmentalImpact}</Text>
             <Text style={styles.impactFootnote}>
-              Mock estimate: {result.co2SavedKg.toFixed(2)} kg CO2 saved for this classification flow.
+              Estimated impact: {result.co2SavedKg.toFixed(2)} kg CO2 saved for this classification.
             </Text>
           </View>
 
@@ -283,14 +283,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
-  mockBadge: {
+  modelBadge: {
     borderRadius: Radii.pill,
-    backgroundColor: '#FFF0DB',
+    backgroundColor: '#E7F8F0',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 5,
   },
-  mockBadgeText: {
-    color: '#C67A00',
+  modelBadgeText: {
+    color: Colors.brand.primaryDark,
     fontSize: FontSizes.caption,
     lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,

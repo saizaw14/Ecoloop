@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { CameraView, type CameraType, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,7 +16,10 @@ import {
   Radii,
   Spacing,
 } from '@/constants/theme';
-import { mockClassifyWaste } from '@/features/scan/services/mock-classification-service';
+import {
+  classifyWasteImage,
+  prepareWasteClassifier,
+} from '@/features/scan/services/tflite-classification-service';
 import { setLatestScanResult } from '@/features/scan/store/scan-session';
 
 export default function ScanScreen() {
@@ -24,14 +27,64 @@ export default function ScanScreen() {
   const cameraRef = useRef<CameraView | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
+  const [isPreparingModel, setIsPreparingModel] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function warmModel() {
+      try {
+        setIsPreparingModel(true);
+        setModelError(null);
+        await prepareWasteClassifier();
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setModelError(
+          error instanceof Error
+            ? error.message
+            : 'We could not load the waste classification model.'
+        );
+      } finally {
+        if (isActive) {
+          setIsPreparingModel(false);
+        }
+      }
+    }
+
+    warmModel();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   async function handleRequestPermission() {
     await requestPermission();
   }
 
+  async function handleRetryModelLoad() {
+    try {
+      setIsPreparingModel(true);
+      setModelError(null);
+      await prepareWasteClassifier();
+    } catch (error) {
+      setModelError(
+        error instanceof Error
+          ? error.message
+          : 'We could not load the waste classification model.'
+      );
+    } finally {
+      setIsPreparingModel(false);
+    }
+  }
+
   async function handleCapture() {
-    if (!cameraRef.current || isProcessing) {
+    if (!cameraRef.current || isProcessing || isPreparingModel || modelError) {
       return;
     }
 
@@ -47,13 +100,15 @@ export default function ScanScreen() {
         throw new Error('No image captured');
       }
 
-      const result = await mockClassifyWaste(picture.uri);
+      const result = await classifyWasteImage(picture.uri);
       setLatestScanResult(result);
       router.push('/scan/result' as Href);
-    } catch {
+    } catch (error) {
       Alert.alert(
         'Capture failed',
-        'We could not classify that item just now. Please try capturing the image again.'
+        error instanceof Error
+          ? error.message
+          : 'We could not classify that item just now. Please try capturing the image again.'
       );
     } finally {
       setIsProcessing(false);
@@ -90,8 +145,8 @@ export default function ScanScreen() {
 
           <Text style={styles.permissionTitle}>Camera access needed</Text>
           <Text style={styles.permissionBody}>
-            Allow camera access so EcoLoop can capture a waste item and run the mock
-            classification flow.
+            Allow camera access so EcoLoop can capture a waste item and run your real
+            on-device classifier.
           </Text>
 
           <HapticPressable
@@ -108,6 +163,34 @@ export default function ScanScreen() {
       );
     }
 
+    if (modelError) {
+      return (
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionIconWrap}>
+            <MaterialCommunityIcons
+              color={Colors.brand.primaryDark}
+              name="alert-circle-outline"
+              size={30}
+            />
+          </View>
+
+          <Text style={styles.permissionTitle}>Model unavailable</Text>
+          <Text style={styles.permissionBody}>{modelError}</Text>
+
+          <HapticPressable
+            accessibilityRole="button"
+            hapticType="medium"
+            onPress={handleRetryModelLoad}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed ? styles.primaryButtonPressed : null,
+            ]}>
+            <Text style={styles.primaryButtonText}>Retry Model Load</Text>
+          </HapticPressable>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.cameraWrap}>
         <CameraView ref={cameraRef} facing={facing} style={styles.camera} />
@@ -119,23 +202,29 @@ export default function ScanScreen() {
               name="star-outline"
               size={14}
             />
-            <Text style={styles.mockChipText}>Mock Classifier</Text>
+            <Text style={styles.mockChipText}>
+              {isPreparingModel ? 'Loading Model...' : 'TFLite Model Ready'}
+            </Text>
           </View>
         </View>
 
         <View pointerEvents="none" style={styles.cameraBottomOverlay}>
           <Text style={styles.cameraHintTitle}>Frame your waste item clearly</Text>
           <Text style={styles.cameraHintBody}>
-            Capture one item at a time for the mock classification result.
+            Capture one item at a time for your on-device waste classification result.
           </Text>
         </View>
 
-        {isProcessing ? (
+        {isProcessing || isPreparingModel ? (
           <View style={styles.processingOverlay}>
             <ActivityIndicator color={Colors.brand.onPrimary} size="large" />
-            <Text style={styles.processingTitle}>Mock classifying...</Text>
+            <Text style={styles.processingTitle}>
+              {isPreparingModel ? 'Loading model...' : 'Classifying image...'}
+            </Text>
             <Text style={styles.processingBody}>
-              We&apos;re generating a sample result for this captured waste item.
+              {isPreparingModel
+                ? 'Preparing your bundled TensorFlow Lite model for on-device classification.'
+                : 'Running your bundled TensorFlow Lite model on this captured waste item.'}
             </Text>
           </View>
         ) : null}
@@ -152,7 +241,7 @@ export default function ScanScreen() {
             <View style={styles.headerCopy}>
               <Text style={styles.headerTitle}>Scan Waste Item</Text>
               <Text style={styles.headerSubtitle}>
-                Capture a photo to test the camera flow before we connect the real AI model.
+                Capture a photo to classify waste items using your bundled TensorFlow Lite model.
               </Text>
             </View>
 
@@ -180,13 +269,17 @@ export default function ScanScreen() {
           <HapticPressable
             accessibilityLabel="Flip camera"
             accessibilityRole="button"
-            disabled={!permission?.granted || isProcessing}
+            disabled={!permission?.granted || isProcessing || isPreparingModel || Boolean(modelError)}
             hapticType="selection"
             onPress={handleFlipCamera}
             style={({ pressed }) => [
               styles.secondaryControl,
-              (!permission?.granted || isProcessing) ? styles.controlDisabled : null,
-              pressed && permission?.granted && !isProcessing ? styles.secondaryControlPressed : null,
+              (!permission?.granted || isProcessing || isPreparingModel || Boolean(modelError))
+                ? styles.controlDisabled
+                : null,
+              pressed && permission?.granted && !isProcessing && !isPreparingModel && !modelError
+                ? styles.secondaryControlPressed
+                : null,
             ]}>
             <MaterialCommunityIcons
               color={Colors.brand.text}
@@ -198,13 +291,17 @@ export default function ScanScreen() {
           <HapticPressable
             accessibilityLabel="Capture waste item"
             accessibilityRole="button"
-            disabled={!permission?.granted || isProcessing}
+            disabled={!permission?.granted || isProcessing || isPreparingModel || Boolean(modelError)}
             hapticType="medium"
             onPress={handleCapture}
             style={({ pressed }) => [
               styles.captureButton,
-              (!permission?.granted || isProcessing) ? styles.controlDisabled : null,
-              pressed && permission?.granted && !isProcessing ? styles.captureButtonPressed : null,
+              (!permission?.granted || isProcessing || isPreparingModel || Boolean(modelError))
+                ? styles.controlDisabled
+                : null,
+              pressed && permission?.granted && !isProcessing && !isPreparingModel && !modelError
+                ? styles.captureButtonPressed
+                : null,
             ]}>
             <View style={styles.captureButtonInner}>
               {isProcessing ? (
