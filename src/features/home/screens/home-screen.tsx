@@ -21,6 +21,7 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { categoriesOverviewIconName } from '@/features/categories/data/category-content';
+import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 import { auth, db } from '@/firebase/firebaseConfig';
 
 type ShortcutCard = {
@@ -33,16 +34,12 @@ type ShortcutCard = {
 
 type HomeProfile = {
   displayName: string;
-  totalCO2Saved: number;
   totalEcoPoints: number;
-  totalScans: number;
 };
 
 const defaultHomeProfile: HomeProfile = {
   displayName: 'Eco Warrior',
-  totalCO2Saved: 0,
   totalEcoPoints: 0,
-  totalScans: 0,
 };
 
 const shortcutCards: ShortcutCard[] = [
@@ -79,6 +76,7 @@ const shortcutCards: ShortcutCard[] = [
 export default function HomeScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<HomeProfile>(defaultHomeProfile);
+  const { totalCO2Saved, totalScans } = useUserWasteStats();
 
   useEffect(() => {
     let isActive = true;
@@ -123,9 +121,7 @@ export default function HomeScreen() {
 
           setProfile({
             displayName: savedName || fallbackName,
-            totalCO2Saved: getNumberValue(data.totalCO2Saved),
             totalEcoPoints: getNumberValue(data.totalEcoPoints),
-            totalScans: getNumberValue(data.totalScans),
           });
           return;
         }
@@ -192,12 +188,12 @@ export default function HomeScreen() {
               <View style={styles.pointsStatsRow}>
                 <View style={styles.pointsStatItem}>
                   <Text style={styles.pointsStatLabel}>Items Sorted</Text>
-                  <Text style={styles.pointsStatValue}>{profile.totalScans}</Text>
+                  <Text style={styles.pointsStatValue}>{totalScans}</Text>
                 </View>
 
                 <View style={styles.pointsStatItem}>
                   <Text style={styles.pointsStatLabel}>CO2 Saved</Text>
-                  <Text style={styles.pointsStatValue}>{profile.totalCO2Saved.toFixed(1)}kg</Text>
+                  <Text style={styles.pointsStatValue}>{totalCO2Saved.toFixed(1)}kg</Text>
                 </View>
               </View>
             </View>

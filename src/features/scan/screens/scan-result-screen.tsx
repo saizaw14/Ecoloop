@@ -61,7 +61,8 @@ export default function ScanResultScreen() {
           </View>
           <Text style={styles.emptyTitle}>No scan result yet</Text>
           <Text style={styles.emptyBody}>
-            Capture a waste item first so we can show the mock classification result.
+            Capture a waste item first so we can show the TensorFlow.js classification
+            result.
           </Text>
           <HapticPressable
             accessibilityRole="button"
@@ -96,13 +97,14 @@ export default function ScanResultScreen() {
 
               <View style={styles.headerTitleRow}>
                 <Text style={styles.headerTitle}>Classification Result</Text>
-                <View style={styles.mockBadge}>
-                  <Text style={styles.mockBadgeText}>Mock</Text>
+                <View style={styles.modelBadge}>
+                  <Text style={styles.modelBadgeText}>TensorFlow.js</Text>
                 </View>
               </View>
 
               <Text style={styles.headerSubtitle}>
-                This is a sample result flow using mock classification before the real AI model.
+                This result was generated on-device using your bundled MobileNetV2-based
+                TensorFlow.js classifier.
               </Text>
             </View>
 
@@ -162,6 +164,41 @@ export default function ScanResultScreen() {
             <Text style={styles.descriptionBody}>{result.description}</Text>
           </View>
 
+          <View style={styles.scoresCard}>
+            <View style={styles.sectionTitleRow}>
+              <MaterialCommunityIcons
+                color={Colors.brand.primaryDark}
+                name="chart-bar"
+                size={18}
+              />
+              <Text style={styles.sectionTitle}>Model scores</Text>
+            </View>
+
+            <Text style={styles.scoresIntro}>
+              Exact training label order: cardboard, glass, metal, paper, plastic,
+              trash.
+            </Text>
+
+            <View style={styles.scoresList}>
+              {result.labelScores.map((score) => (
+                <View
+                  key={score.label}
+                  style={[
+                    styles.scoreRow,
+                    score.label === result.topLabel ? styles.scoreRowActive : null,
+                  ]}>
+                  <Text style={styles.scoreLabel}>{score.label}</Text>
+                  <Text style={styles.scoreValue}>{score.confidence.toFixed(1)}%</Text>
+                </View>
+              ))}
+            </View>
+
+            <Text style={styles.scoresFootnote}>
+              Backend: {result.backend} | Input: {result.modelInputSize} x{' '}
+              {result.modelInputSize} | Preprocessing: MobileNetV2
+            </Text>
+          </View>
+
           <View style={styles.guidanceCard}>
             <View style={styles.sectionTitleRow}>
               <MaterialCommunityIcons color={Colors.brand.primaryDark} name="clipboard-check-outline" size={18} />
@@ -199,7 +236,8 @@ export default function ScanResultScreen() {
             </View>
             <Text style={styles.impactBody}>{result.environmentalImpact}</Text>
             <Text style={styles.impactFootnote}>
-              Mock estimate: {result.co2SavedKg.toFixed(2)} kg CO2 saved for this classification flow.
+              Estimated diversion impact: {result.co2SavedKg.toFixed(2)} kg CO2 based on
+              this category guidance.
             </Text>
           </View>
 
@@ -283,13 +321,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
-  mockBadge: {
+  modelBadge: {
     borderRadius: Radii.pill,
     backgroundColor: '#FFF0DB',
     paddingHorizontal: Spacing.sm,
     paddingVertical: 5,
   },
-  mockBadgeText: {
+  modelBadgeText: {
     color: '#C67A00',
     fontSize: FontSizes.caption,
     lineHeight: LineHeights.caption,
@@ -390,6 +428,12 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     gap: Spacing.sm,
   },
+  scoresCard: {
+    borderRadius: 20,
+    backgroundColor: Colors.brand.surface,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -414,6 +458,51 @@ const styles = StyleSheet.create({
     color: '#5F6E80',
     fontSize: FontSizes.sm,
     lineHeight: 22,
+    fontFamily: Fonts.sans,
+  },
+  scoresIntro: {
+    color: '#5F6E80',
+    fontSize: FontSizes.sm,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+    marginBottom: Spacing.lg,
+  },
+  scoresList: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  scoreRow: {
+    borderRadius: 16,
+    backgroundColor: '#F4F7FA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+  },
+  scoreRowActive: {
+    backgroundColor: '#E7F8F0',
+    borderWidth: 1,
+    borderColor: '#B8E2CC',
+  },
+  scoreLabel: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.sm,
+    lineHeight: LineHeights.sm,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  scoreValue: {
+    color: Colors.brand.body,
+    fontSize: FontSizes.sm,
+    lineHeight: LineHeights.sm,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  scoresFootnote: {
+    color: '#708090',
+    fontSize: FontSizes.caption,
+    lineHeight: 20,
     fontFamily: Fonts.sans,
   },
   guidanceCard: {

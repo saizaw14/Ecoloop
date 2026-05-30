@@ -15,12 +15,16 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { getWasteCategory } from '@/features/categories/data/category-content';
+import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 
 export default function CategoryDetailScreen() {
   const router = useRouter();
+  const { categoryScanCounts } = useUserWasteStats();
   const { slug } = useLocalSearchParams<{ slug?: string | string[] }>();
   const normalizedSlug = Array.isArray(slug) ? slug[0] : slug;
-  const category = normalizedSlug ? getWasteCategory(normalizedSlug) : undefined;
+  const category = normalizedSlug
+    ? getWasteCategory(normalizedSlug, categoryScanCounts)
+    : undefined;
 
   function handleBack() {
     if (router.canGoBack()) {

@@ -16,11 +16,14 @@ import {
 } from '@/constants/theme';
 import {
   categoriesOverviewIconName,
-  wasteCategories,
+  getWasteCategories,
 } from '@/features/categories/data/category-content';
+import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 
 export default function CategoriesScreen() {
   const router = useRouter();
+  const { categoryScanCounts } = useUserWasteStats();
+  const wasteCategories = getWasteCategories(categoryScanCounts);
 
   function handleBack() {
     router.replace('/(tabs)' as Href);
@@ -95,6 +98,7 @@ export default function CategoriesScreen() {
 
               <View style={styles.categoryContent}>
                 <Text style={styles.categoryTitle}>{category.name}</Text>
+                <Text style={styles.categoryMeta}>{category.detailSubtitle}</Text>
                 <Text numberOfLines={2} style={styles.categoryDescription}>
                   {category.previewDescription}
                 </Text>
@@ -212,6 +216,13 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: FontSizes.body,
     lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  categoryMeta: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },

@@ -7,6 +7,14 @@
     "metal",
     "general"
   ],
+  "classificationLabels": [
+    "cardboard",
+    "glass",
+    "metal",
+    "paper",
+    "plastic",
+    "trash"
+  ],
   "totalCategories": 6,
   "description": "Complete waste category data for EcoLoop recycling application"
 }

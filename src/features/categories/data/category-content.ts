@@ -95,27 +95,77 @@ const categoryPresentationMap = {
 } as const satisfies Record<keyof typeof categorySourceMap, CategoryPresentation>;
 
 export type WasteCategorySlug = keyof typeof categorySourceMap;
+export type WasteCategoryCounts = Partial<Record<WasteCategorySlug, number>>;
 
 export type WasteCategory = CategorySource &
   CategoryPresentation & {
     slug: WasteCategorySlug;
+    sortedCount: number;
   };
 
 const orderedCategorySlugs = categoriesIndex.categories.filter(
   (slug): slug is WasteCategorySlug => slug in categorySourceMap
 );
+const orderedCategoryIndexMap = Object.fromEntries(
+  orderedCategorySlugs.map((slug, index) => [slug, index])
+) as Record<WasteCategorySlug, number>;
 
-export const wasteCategories: WasteCategory[] = orderedCategorySlugs.map((slug) => {
+export const wasteCategorySlugs = orderedCategorySlugs;
+
+function getSortedCount(
+  slug: WasteCategorySlug,
+  categoryCounts: WasteCategoryCounts = {}
+) {
+  const count = categoryCounts[slug];
+
+  if (typeof count !== 'number' || !Number.isFinite(count)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(count));
+}
+
+function formatDetailSubtitle(sortedCount: number) {
+  return `${sortedCount} item${sortedCount === 1 ? '' : 's'} sorted`;
+}
+
+function buildWasteCategory(
+  slug: WasteCategorySlug,
+  categoryCounts: WasteCategoryCounts = {}
+) {
   const source = categorySourceMap[slug];
   const presentation = categoryPresentationMap[slug];
+  const sortedCount = getSortedCount(slug, categoryCounts);
 
   return {
     ...source,
     ...presentation,
+    detailSubtitle: formatDetailSubtitle(sortedCount),
     slug,
+    sortedCount,
   } as WasteCategory;
-});
+}
 
-export function getWasteCategory(slug: string) {
-  return wasteCategories.find((category) => category.slug === slug);
+export function getWasteCategories(categoryCounts: WasteCategoryCounts = {}) {
+  return orderedCategorySlugs
+    .map((slug) => buildWasteCategory(slug, categoryCounts))
+    .sort(
+      (leftCategory, rightCategory) =>
+        rightCategory.sortedCount - leftCategory.sortedCount ||
+        orderedCategoryIndexMap[leftCategory.slug] -
+          orderedCategoryIndexMap[rightCategory.slug]
+    );
+}
+
+export const wasteCategories: WasteCategory[] = getWasteCategories();
+
+export function getWasteCategory(
+  slug: string,
+  categoryCounts: WasteCategoryCounts = {}
+) {
+  if (!(slug in categorySourceMap)) {
+    return undefined;
+  }
+
+  return buildWasteCategory(slug as WasteCategorySlug, categoryCounts);
 }
