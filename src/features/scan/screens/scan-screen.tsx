@@ -20,7 +20,6 @@ import {
   classifyWasteImage,
   warmUpWasteClassifier,
 } from '@/features/scan/services/waste-classification-service';
-import { recordWasteScan } from '@/features/scan/services/user-waste-stats-service';
 import { setLatestScanResult } from '@/features/scan/store/scan-session';
 
 export default function ScanScreen() {
@@ -89,7 +88,6 @@ export default function ScanScreen() {
 
       const result = await classifyWasteImage(picture.uri);
       setLatestScanResult(result);
-      void recordWasteScan(result);
       router.push('/scan/result' as Href);
     } catch {
       Alert.alert(

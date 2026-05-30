@@ -27,11 +27,6 @@ export default function CategoryDetailScreen() {
     : undefined;
 
   function handleBack() {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
     router.replace('/categories' as Href);
   }
 
