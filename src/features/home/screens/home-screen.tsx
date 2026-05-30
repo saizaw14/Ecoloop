@@ -34,12 +34,10 @@ type ShortcutCard = {
 
 type HomeProfile = {
   displayName: string;
-  totalEcoPoints: number;
 };
 
 const defaultHomeProfile: HomeProfile = {
   displayName: 'Eco Warrior',
-  totalEcoPoints: 0,
 };
 
 const shortcutCards: ShortcutCard[] = [
@@ -76,7 +74,7 @@ const shortcutCards: ShortcutCard[] = [
 export default function HomeScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<HomeProfile>(defaultHomeProfile);
-  const { totalCO2Saved, totalScans } = useUserWasteStats();
+  const { totalCO2Saved, totalEcoPoints, totalScans } = useUserWasteStats();
 
   useEffect(() => {
     let isActive = true;
@@ -91,11 +89,6 @@ export default function HomeScreen() {
       const emailPrefix = email?.split('@')[0]?.trim();
       return emailPrefix || defaultHomeProfile.displayName;
     }
-
-    function getNumberValue(value: unknown) {
-      return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-    }
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!isActive) {
         return;
@@ -121,7 +114,6 @@ export default function HomeScreen() {
 
           setProfile({
             displayName: savedName || fallbackName,
-            totalEcoPoints: getNumberValue(data.totalEcoPoints),
           });
           return;
         }
@@ -179,7 +171,7 @@ export default function HomeScreen() {
               <View style={styles.pointsHeader}>
                 <View style={styles.pointsSummary}>
                   <Text style={styles.pointsLabel}>Total Eco Points</Text>
-                  <Text style={styles.pointsValue}>{profile.totalEcoPoints}</Text>
+                  <Text style={styles.pointsValue}>{totalEcoPoints}</Text>
                 </View>
               </View>
 

@@ -8,6 +8,7 @@ import {
   getWasteCategory,
   type WasteCategorySlug,
 } from '@/features/categories/data/category-content';
+import { getWasteSortingGuidance } from '@/features/scan/services/waste-sorting-rewards';
 
 import modelShard1 from '../../../assets/models/waste-classifier/group1-shard1of3.bin';
 import modelShard2 from '../../../assets/models/waste-classifier/group1-shard2of3.bin';
@@ -53,12 +54,6 @@ export type WasteClassificationResult = {
   topLabel: WasteClassifierLabel;
 };
 
-type ClassificationGuidance = {
-  co2SavedKg: number;
-  nextStep: string;
-  summary: string;
-};
-
 type WasteClassifierModelJson = {
   convertedBy?: string | null;
   format?: string;
@@ -96,45 +91,6 @@ const labelToCategorySlug = {
   plastic: 'plastic',
   trash: 'general',
 } as const satisfies Record<WasteClassifierLabel, WasteCategorySlug>;
-
-const classificationGuidanceByLabel = {
-  cardboard: {
-    co2SavedKg: 0.16,
-    summary: 'TensorFlow.js classified this item as cardboard packaging.',
-    nextStep:
-      'Flatten it, keep it dry, and remove extra plastic or foam inserts before recycling.',
-  },
-  glass: {
-    co2SavedKg: 0.28,
-    summary: 'TensorFlow.js classified this item as glass.',
-    nextStep:
-      'Empty the contents, rinse the container, and recycle it with glass items.',
-  },
-  metal: {
-    co2SavedKg: 0.24,
-    summary: 'TensorFlow.js classified this item as metal.',
-    nextStep:
-      'Rinse away residue and place it with clean metal recyclables.',
-  },
-  paper: {
-    co2SavedKg: 0.12,
-    summary: 'TensorFlow.js classified this item as paper.',
-    nextStep:
-      'Keep it dry and flatten it if possible before placing it in paper recycling.',
-  },
-  plastic: {
-    co2SavedKg: 0.2,
-    summary: 'TensorFlow.js classified this item as plastic.',
-    nextStep:
-      'Rinse it briefly, let it dry, and place it in the plastic recycling stream.',
-  },
-  trash: {
-    co2SavedKg: 0,
-    summary: 'TensorFlow.js classified this item as trash rather than a recyclable.',
-    nextStep:
-      'Dispose of it in the trash unless local guidelines offer a specialist disposal stream.',
-  },
-} as const satisfies Record<WasteClassifierLabel, ClassificationGuidance>;
 
 let classifierPromise: Promise<LoadedWasteClassifier> | null = null;
 
@@ -325,7 +281,7 @@ export async function classifyWasteImage(imageUri: string) {
     const topLabel = getTopLabel(probabilities);
     const categorySlug = labelToCategorySlug[topLabel];
     const category = getWasteCategory(categorySlug);
-    const guidance = classificationGuidanceByLabel[topLabel];
+    const guidance = getWasteSortingGuidance(categorySlug);
 
     if (!category) {
       throw new Error(`Unable to find category data for label "${topLabel}".`);

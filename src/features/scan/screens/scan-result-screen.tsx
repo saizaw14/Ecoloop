@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { HapticPressable } from '@/components/ui/haptic-pressable';
@@ -16,6 +17,17 @@ import {
   Spacing,
 } from '@/constants/theme';
 import {
+  getWasteCategory,
+  wasteCategorySlugs,
+} from '@/features/categories/data/category-content';
+import {
+  calculateWasteEcoPoints,
+  ecoPointRules,
+  getWasteSortingGuidance,
+  getWasteSortingSummary,
+} from '@/features/scan/services/waste-sorting-rewards';
+import { recordWasteScan } from '@/features/scan/services/user-waste-stats-service';
+import {
   clearLatestScanResult,
   getLatestScanResult,
 } from '@/features/scan/store/scan-session';
@@ -27,22 +39,17 @@ function formatConfidence(confidence: number) {
 export default function ScanResultScreen() {
   const router = useRouter();
   const result = getLatestScanResult();
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState(
+    result?.categorySlug ?? 'general'
+  );
+  const [isSaving, setIsSaving] = useState(false);
 
-  function handleBack() {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    router.replace('/scan' as Href);
-  }
-
-  function handleScanAgain() {
+  function handleDiscardToCamera() {
     clearLatestScanResult();
     router.replace('/scan' as Href);
   }
 
-  function handleClose() {
+  function handleDiscardToHome() {
     clearLatestScanResult();
     router.replace('/(tabs)' as Href);
   }
@@ -79,6 +86,74 @@ export default function ScanResultScreen() {
     );
   }
 
+  const selectedCategory =
+    getWasteCategory(selectedCategorySlug) ?? getWasteCategory(result.categorySlug);
+
+  if (!selectedCategory) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar style="dark" />
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>Category unavailable</Text>
+          <Text style={styles.emptyBody}>
+            We could not load the selected waste category for this result.
+          </Text>
+          <HapticPressable
+            accessibilityRole="button"
+            hapticType="medium"
+            onPress={handleDiscardToCamera}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              pressed ? styles.primaryButtonPressed : null,
+            ]}>
+            <Text style={styles.primaryButtonText}>Back to Camera</Text>
+          </HapticPressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const confirmedCategory = selectedCategory;
+  const wasCategoryCorrected = confirmedCategory.slug !== result.categorySlug;
+  const sortingGuidance = getWasteSortingGuidance(confirmedCategory.slug);
+  const sortingSummary = getWasteSortingSummary(
+    confirmedCategory.slug,
+    wasCategoryCorrected
+  );
+  const ecoPointsEarned = calculateWasteEcoPoints(
+    confirmedCategory.slug,
+    wasCategoryCorrected
+  );
+
+  async function handleSaveAndViewGuide() {
+    if (isSaving) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const didSave = await recordWasteScan({
+        categorySlug: confirmedCategory.slug,
+        co2SavedKg: sortingGuidance.co2SavedKg,
+        ecoPointsEarned,
+      });
+
+      if (!didSave) {
+        Alert.alert(
+          'Could not save sorting',
+          'Please make sure you are signed in and try again.'
+        );
+        return;
+      }
+
+      clearLatestScanResult();
+      router.replace(`/categories/${confirmedCategory.slug}` as Href);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
@@ -89,22 +164,18 @@ export default function ScanResultScreen() {
               <HapticPressable
                 accessibilityRole="button"
                 hapticType="selection"
-                onPress={handleBack}
+                onPress={handleDiscardToCamera}
                 style={styles.backButton}>
                 <MaterialCommunityIcons color={Colors.brand.body} name="chevron-left" size={20} />
-                <Text style={styles.backButtonText}>Back to Camera</Text>
+                <Text style={styles.backButtonText}>Scan Again</Text>
               </HapticPressable>
 
               <View style={styles.headerTitleRow}>
-                <Text style={styles.headerTitle}>Classification Result</Text>
-                <View style={styles.modelBadge}>
-                  <Text style={styles.modelBadgeText}>TensorFlow.js</Text>
-                </View>
+                <Text style={styles.headerTitle}>Sort This Item</Text>
               </View>
 
               <Text style={styles.headerSubtitle}>
-                This result was generated on-device using your bundled MobileNetV2-based
-                TensorFlow.js classifier.
+                Choose the right bin, then save to view the recycling guide.
               </Text>
             </View>
 
@@ -112,7 +183,7 @@ export default function ScanResultScreen() {
               accessibilityLabel="Close scan result"
               accessibilityRole="button"
               hapticType="selection"
-              onPress={handleClose}
+              onPress={handleDiscardToHome}
               style={({ pressed }) => [
                 styles.closeButton,
                 pressed ? styles.closeButtonPressed : null,
@@ -132,36 +203,114 @@ export default function ScanResultScreen() {
               <View
                 style={[
                   styles.resultIconWrap,
-                  { backgroundColor: result.iconBackgroundColor },
+                  { backgroundColor: confirmedCategory.iconBackgroundColor },
                 ]}>
                 <MaterialCommunityIcons
                   color={Colors.brand.onPrimary}
-                  name={result.iconName}
+                  name={confirmedCategory.iconName}
                   size={24}
                 />
               </View>
 
               <View style={styles.previewMetaCopy}>
-                <Text style={styles.resultCategory}>{result.categoryName}</Text>
-                <Text style={styles.resultConfidence}>{formatConfidence(result.confidence)}</Text>
+                <Text style={styles.resultCategory}>{confirmedCategory.name}</Text>
+                <Text style={styles.resultConfidence}>
+                  {wasCategoryCorrected
+                    ? `Manually corrected from ${result.categoryName}`
+                    : `AI prediction at ${formatConfidence(result.confidence)}`}
+                </Text>
               </View>
 
               <View
                 style={[
                   styles.statusChip,
-                  result.recyclable ? styles.recyclableChip : styles.generalChip,
+                  confirmedCategory.recyclable
+                    ? styles.recyclableChip
+                    : styles.generalChip,
                 ]}>
                 <Text style={styles.statusChipText}>
-                  {result.recyclable ? 'Recyclable' : result.categoryName}
+                  {confirmedCategory.recyclable ? 'Recyclable' : confirmedCategory.name}
                 </Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.sectionTitle}>What we found</Text>
-            <Text style={styles.summaryBody}>{result.summary}</Text>
-            <Text style={styles.descriptionBody}>{result.description}</Text>
+          <View style={styles.correctionCard}>
+            <View style={styles.sectionTitleRow}>
+              <MaterialCommunityIcons
+                color={Colors.brand.primaryDark}
+                name="tune-variant"
+                size={18}
+              />
+              <Text style={styles.sectionTitle}>Choose the right bin</Text>
+            </View>
+
+            <Text style={styles.correctionBody}>
+              If the AI guessed wrong, correct it below. Sorting it into the right bin
+              earns your normal eco points, and corrections earn +{ecoPointRules.manualCorrectionBonus}.
+            </Text>
+
+            <View style={styles.categoryOptionWrap}>
+              {wasteCategorySlugs.map((categorySlug) => {
+                const category = getWasteCategory(categorySlug);
+
+                if (!category) {
+                  return null;
+                }
+
+                const isActive = category.slug === confirmedCategory.slug;
+
+                return (
+                  <HapticPressable
+                    key={category.slug}
+                    accessibilityRole="button"
+                    hapticType="selection"
+                    onPress={() => setSelectedCategorySlug(category.slug)}
+                    style={({ pressed }) => [
+                      styles.categoryOption,
+                      isActive ? styles.categoryOptionActive : null,
+                      pressed ? styles.categoryOptionPressed : null,
+                    ]}>
+                    <View
+                      style={[
+                        styles.categoryOptionIconWrap,
+                        { backgroundColor: category.iconBackgroundColor },
+                      ]}>
+                      <MaterialCommunityIcons
+                        color={Colors.brand.onPrimary}
+                        name={category.iconName}
+                        size={16}
+                      />
+                    </View>
+                    <Text style={styles.categoryOptionLabel}>{category.name}</Text>
+                  </HapticPressable>
+                );
+              })}
+            </View>
+
+            {wasCategoryCorrected ? (
+              <View style={styles.correctionNote}>
+                <MaterialCommunityIcons
+                  color="#0B7F55"
+                  name="leaf-circle-outline"
+                  size={16}
+                />
+                <Text style={styles.correctionNoteText}>
+                  Great catch. You helped sort this item into the right bin.
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.rewardCard}>
+              <Text style={styles.rewardLabel}>You&apos;ll earn</Text>
+              <Text style={styles.rewardValue}>+{ecoPointsEarned} eco points</Text>
+              <Text style={styles.rewardHint}>
+                {sortingGuidance.co2SavedKg.toFixed(2)} kg CO2 saved
+                {wasCategoryCorrected
+                  ? ` | includes +${ecoPointRules.manualCorrectionBonus} correction bonus`
+                  : ''}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.scoresCard}>
@@ -175,8 +324,8 @@ export default function ScanResultScreen() {
             </View>
 
             <Text style={styles.scoresIntro}>
-              Exact training label order: cardboard, glass, metal, paper, plastic,
-              trash.
+              {sortingSummary} The AI predicted {result.categoryName} with{' '}
+              {formatConfidence(result.confidence)}.
             </Text>
 
             <View style={styles.scoresList}>
@@ -192,22 +341,21 @@ export default function ScanResultScreen() {
                 </View>
               ))}
             </View>
-
-            <Text style={styles.scoresFootnote}>
-              Backend: {result.backend} | Input: {result.modelInputSize} x{' '}
-              {result.modelInputSize} | Preprocessing: MobileNetV2
-            </Text>
           </View>
 
           <View style={styles.guidanceCard}>
             <View style={styles.sectionTitleRow}>
-              <MaterialCommunityIcons color={Colors.brand.primaryDark} name="clipboard-check-outline" size={18} />
+              <MaterialCommunityIcons
+                color={Colors.brand.primaryDark}
+                name="clipboard-check-outline"
+                size={18}
+              />
               <Text style={styles.sectionTitle}>Next step</Text>
             </View>
-            <Text style={styles.guidanceBody}>{result.nextStep}</Text>
+            <Text style={styles.guidanceBody}>{sortingGuidance.nextStep}</Text>
 
             <View style={styles.preparationList}>
-              {result.preparationSteps.map((step, index) => (
+              {confirmedCategory.preparationSteps.slice(0, 3).map((step, index) => (
                 <View key={step} style={styles.preparationRow}>
                   <View style={styles.preparationBadge}>
                     <Text style={styles.preparationBadgeText}>{index + 1}</Text>
@@ -221,7 +369,7 @@ export default function ScanResultScreen() {
           <View style={styles.examplesCard}>
             <Text style={styles.sectionTitle}>Accepted examples</Text>
             <View style={styles.examplesWrap}>
-              {result.acceptedExamples.map((item) => (
+              {confirmedCategory.accepted.slice(0, 4).map((item) => (
                 <View key={item} style={styles.exampleChip}>
                   <Text style={styles.exampleChipText}>{item}</Text>
                 </View>
@@ -234,35 +382,27 @@ export default function ScanResultScreen() {
               <MaterialCommunityIcons color="#A7F3D0" name="earth" size={18} />
               <Text style={[styles.sectionTitle, styles.impactTitle]}>Environmental impact</Text>
             </View>
-            <Text style={styles.impactBody}>{result.environmentalImpact}</Text>
+            <Text style={styles.impactBody}>{confirmedCategory.environmentalImpact}</Text>
             <Text style={styles.impactFootnote}>
-              Estimated diversion impact: {result.co2SavedKg.toFixed(2)} kg CO2 based on
-              this category guidance.
+              Confirming this sort adds {sortingGuidance.co2SavedKg.toFixed(2)} kg CO2
+              saved to your impact totals.
             </Text>
           </View>
 
           <View style={styles.actionRow}>
             <HapticPressable
               accessibilityRole="button"
-              hapticType="selection"
-              onPress={() => router.push(`/categories/${result.categorySlug}` as Href)}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed ? styles.secondaryButtonPressed : null,
-              ]}>
-              <Text style={styles.secondaryButtonText}>View Category Guide</Text>
-            </HapticPressable>
-
-            <HapticPressable
-              accessibilityRole="button"
+              disabled={isSaving}
               hapticType="medium"
-              onPress={handleScanAgain}
+              onPress={handleSaveAndViewGuide}
               style={({ pressed }) => [
                 styles.primaryButton,
-                styles.scanAgainButton,
-                pressed ? styles.primaryButtonPressed : null,
+                isSaving ? styles.actionDisabled : null,
+                pressed && !isSaving ? styles.primaryButtonPressed : null,
               ]}>
-              <Text style={styles.primaryButtonText}>Scan Again</Text>
+              <Text style={styles.primaryButtonText}>
+                {isSaving ? 'Saving...' : 'Save & View Guidance'}
+              </Text>
             </HapticPressable>
           </View>
         </ScrollView>
@@ -311,26 +451,12 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
     marginBottom: Spacing.xs,
   },
   headerTitle: {
     color: Colors.brand.text,
     fontSize: FontSizes.title,
     lineHeight: LineHeights.title,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-  },
-  modelBadge: {
-    borderRadius: Radii.pill,
-    backgroundColor: '#FFF0DB',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-  },
-  modelBadgeText: {
-    color: '#C67A00',
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
@@ -421,12 +547,104 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
-  summaryCard: {
+  correctionCard: {
     borderRadius: 20,
     backgroundColor: Colors.brand.surface,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.lg,
+    gap: Spacing.md,
+  },
+  correctionBody: {
+    color: '#5F6E80',
+    fontSize: FontSizes.sm,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+  },
+  categoryOptionWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: Spacing.sm,
+  },
+  categoryOption: {
+    width: '31%',
+    borderRadius: 18,
+    backgroundColor: '#F4F7FA',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    minHeight: 86,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 12,
+  },
+  categoryOptionActive: {
+    backgroundColor: '#E7F8F0',
+    borderWidth: 1,
+    borderColor: '#B8E2CC',
+  },
+  categoryOptionPressed: {
+    opacity: 0.94,
+    transform: [{ scale: 0.99 }],
+  },
+  categoryOptionIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryOptionLabel: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.caption,
+    lineHeight: 18,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+    textAlign: 'center',
+  },
+  correctionNote: {
+    borderRadius: 16,
+    backgroundColor: '#E7F8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+  correctionNoteText: {
+    flex: 1,
+    color: '#0B7F55',
+    fontSize: FontSizes.caption,
+    lineHeight: 20,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  rewardCard: {
+    borderRadius: 18,
+    backgroundColor: '#10B095',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  rewardLabel: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    marginBottom: 4,
+  },
+  rewardValue: {
+    color: Colors.brand.onPrimary,
+    fontSize: 30,
+    lineHeight: 34,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+    marginBottom: Spacing.xs,
+  },
+  rewardHint: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: FontSizes.sm,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
   },
   scoresCard: {
     borderRadius: 20,
@@ -447,19 +665,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
-  summaryBody: {
-    color: Colors.brand.body,
-    fontSize: FontSizes.body,
-    lineHeight: 24,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-  },
-  descriptionBody: {
-    color: '#5F6E80',
-    fontSize: FontSizes.sm,
-    lineHeight: 22,
-    fontFamily: Fonts.sans,
-  },
   scoresIntro: {
     color: '#5F6E80',
     fontSize: FontSizes.sm,
@@ -469,7 +674,6 @@ const styles = StyleSheet.create({
   },
   scoresList: {
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
   },
   scoreRow: {
     borderRadius: 16,
@@ -498,12 +702,6 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.sm,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
-  },
-  scoresFootnote: {
-    color: '#708090',
-    fontSize: FontSizes.caption,
-    lineHeight: 20,
-    fontFamily: Fonts.sans,
   },
   guidanceCard: {
     borderRadius: 20,
@@ -597,27 +795,6 @@ const styles = StyleSheet.create({
   actionRow: {
     gap: Spacing.md,
   },
-  secondaryButton: {
-    minHeight: 54,
-    borderRadius: 18,
-    backgroundColor: Colors.brand.surface,
-    borderWidth: 1,
-    borderColor: Colors.brand.inputBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.lg,
-  },
-  secondaryButtonPressed: {
-    opacity: 0.94,
-    transform: [{ scale: 0.99 }],
-  },
-  secondaryButtonText: {
-    color: Colors.brand.text,
-    fontSize: FontSizes.body,
-    lineHeight: LineHeights.body,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-  },
   primaryButton: {
     minHeight: 54,
     borderRadius: 18,
@@ -625,9 +802,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: Spacing.lg,
-  },
-  scanAgainButton: {
-    marginBottom: Spacing.sm,
   },
   primaryButtonPressed: {
     opacity: 0.94,
@@ -639,6 +813,9 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
+  },
+  actionDisabled: {
+    opacity: 0.6,
   },
   emptyWrap: {
     flex: 1,

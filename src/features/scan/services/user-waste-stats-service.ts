@@ -2,20 +2,22 @@ import { doc, increment, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import {
   wasteCategorySlugs,
+  type WasteCategorySlug,
   type WasteCategoryCounts,
 } from '@/features/categories/data/category-content';
-import type { WasteClassificationResult } from '@/features/scan/services/waste-classification-service';
 import { auth, db } from '@/firebase/firebaseConfig';
 
 export type UserWasteStats = {
   categoryScanCounts: WasteCategoryCounts;
   totalCO2Saved: number;
+  totalEcoPoints: number;
   totalScans: number;
 };
 
 export const emptyUserWasteStats: UserWasteStats = {
   categoryScanCounts: {},
   totalCO2Saved: 0,
+  totalEcoPoints: 0,
   totalScans: 0,
 };
 
@@ -55,26 +57,30 @@ export function normalizeUserWasteStats(
   return {
     categoryScanCounts: normalizeCategoryScanCounts(value.categoryScanCounts),
     totalCO2Saved: getFiniteNonNegativeNumber(value.totalCO2Saved),
+    totalEcoPoints: Math.floor(getFiniteNonNegativeNumber(value.totalEcoPoints)),
     totalScans: Math.floor(getFiniteNonNegativeNumber(value.totalScans)),
   };
 }
 
-type RecordedWasteScan = Pick<
-  WasteClassificationResult,
-  'categorySlug' | 'co2SavedKg'
->;
+type RecordedWasteScan = {
+  categorySlug: WasteCategorySlug;
+  co2SavedKg: number;
+  ecoPointsEarned: number;
+};
 
 export async function recordWasteScan({
   categorySlug,
   co2SavedKg,
+  ecoPointsEarned,
 }: RecordedWasteScan) {
   const user = auth.currentUser;
 
   if (!user) {
-    return;
+    return false;
   }
 
   const normalizedCO2SavedKg = getFiniteNonNegativeNumber(co2SavedKg);
+  const normalizedEcoPoints = Math.floor(getFiniteNonNegativeNumber(ecoPointsEarned));
 
   try {
     await setDoc(
@@ -84,12 +90,15 @@ export async function recordWasteScan({
           [categorySlug]: increment(1),
         },
         totalCO2Saved: increment(normalizedCO2SavedKg),
+        totalEcoPoints: increment(normalizedEcoPoints),
         totalScans: increment(1),
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
+    return true;
   } catch {
     // Keep the scan result flow usable even if syncing impact stats fails.
+    return false;
   }
 }
