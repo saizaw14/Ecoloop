@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { CameraView, type CameraType, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,7 +16,11 @@ import {
   Radii,
   Spacing,
 } from '@/constants/theme';
-import { mockClassifyWaste } from '@/features/scan/services/mock-classification-service';
+import {
+  classifyWasteImage,
+  warmUpWasteClassifier,
+} from '@/features/scan/services/waste-classification-service';
+import { recordWasteScan } from '@/features/scan/services/user-waste-stats-service';
 import { setLatestScanResult } from '@/features/scan/store/scan-session';
 
 export default function ScanScreen() {
@@ -25,6 +29,43 @@ export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [classifierStatus, setClassifierStatus] = useState<
+    'idle' | 'loading' | 'ready' | 'error'
+  >('idle');
+  const [classifierErrorMessage, setClassifierErrorMessage] = useState<string | null>(
+    null
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function prepareClassifier() {
+      try {
+        setClassifierStatus('loading');
+        setClassifierErrorMessage(null);
+        await warmUpWasteClassifier();
+
+        if (isMounted) {
+          setClassifierStatus('ready');
+        }
+      } catch (error) {
+        if (isMounted) {
+          setClassifierStatus('error');
+          setClassifierErrorMessage(
+            error instanceof Error
+              ? error.message
+              : 'The TensorFlow.js model could not be prepared.'
+          );
+        }
+      }
+    }
+
+    prepareClassifier();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   async function handleRequestPermission() {
     await requestPermission();
@@ -40,15 +81,15 @@ export default function ScanScreen() {
 
       const picture = await cameraRef.current.takePictureAsync({
         quality: 0.7,
-        skipProcessing: true,
       });
 
       if (!picture?.uri) {
         throw new Error('No image captured');
       }
 
-      const result = await mockClassifyWaste(picture.uri);
+      const result = await classifyWasteImage(picture.uri);
       setLatestScanResult(result);
+      void recordWasteScan(result);
       router.push('/scan/result' as Href);
     } catch {
       Alert.alert(
@@ -63,6 +104,21 @@ export default function ScanScreen() {
   function handleFlipCamera() {
     setFacing((currentFacing) => (currentFacing === 'back' ? 'front' : 'back'));
   }
+
+  const captureDisabled =
+    !permission?.granted || isProcessing || classifierStatus === 'error';
+  const classifierChipStyle =
+    classifierStatus === 'error'
+      ? styles.classifierChipError
+      : classifierStatus === 'ready'
+        ? styles.classifierChipReady
+        : styles.classifierChipLoading;
+  const classifierChipText =
+    classifierStatus === 'error'
+      ? 'Model Error'
+      : classifierStatus === 'ready'
+        ? 'TensorFlow.js Ready'
+        : 'Loading TensorFlow.js';
 
   function renderCameraContent() {
     if (!permission) {
@@ -90,8 +146,8 @@ export default function ScanScreen() {
 
           <Text style={styles.permissionTitle}>Camera access needed</Text>
           <Text style={styles.permissionBody}>
-            Allow camera access so EcoLoop can capture a waste item and run the mock
-            classification flow.
+            Allow camera access so EcoLoop can capture a waste item and run on-device
+            waste classification.
           </Text>
 
           <HapticPressable
@@ -113,29 +169,34 @@ export default function ScanScreen() {
         <CameraView ref={cameraRef} facing={facing} style={styles.camera} />
 
         <View pointerEvents="none" style={styles.cameraTopOverlay}>
-          <View style={styles.mockChip}>
+          <View style={[styles.classifierChip, classifierChipStyle]}>
             <MaterialCommunityIcons
               color={Colors.brand.onPrimary}
-              name="star-outline"
+              name="brain"
               size={14}
             />
-            <Text style={styles.mockChipText}>Mock Classifier</Text>
+            <Text style={styles.classifierChipText}>{classifierChipText}</Text>
           </View>
         </View>
 
         <View pointerEvents="none" style={styles.cameraBottomOverlay}>
           <Text style={styles.cameraHintTitle}>Frame your waste item clearly</Text>
           <Text style={styles.cameraHintBody}>
-            Capture one item at a time for the mock classification result.
+            Capture one item at a time for the best TensorFlow.js classification
+            result.
           </Text>
+          {classifierStatus === 'error' && classifierErrorMessage ? (
+            <Text style={styles.cameraErrorBody}>{classifierErrorMessage}</Text>
+          ) : null}
         </View>
 
         {isProcessing ? (
           <View style={styles.processingOverlay}>
             <ActivityIndicator color={Colors.brand.onPrimary} size="large" />
-            <Text style={styles.processingTitle}>Mock classifying...</Text>
+            <Text style={styles.processingTitle}>Classifying image...</Text>
             <Text style={styles.processingBody}>
-              We&apos;re generating a sample result for this captured waste item.
+              We&apos;re running the bundled TensorFlow.js model on this captured
+              waste item.
             </Text>
           </View>
         ) : null}
@@ -152,7 +213,7 @@ export default function ScanScreen() {
             <View style={styles.headerCopy}>
               <Text style={styles.headerTitle}>Scan Waste Item</Text>
               <Text style={styles.headerSubtitle}>
-                Capture a photo to test the camera flow before we connect the real AI model.
+                Capture a photo to test your on-device waste classifier in Expo Go.
               </Text>
             </View>
 
@@ -180,13 +241,13 @@ export default function ScanScreen() {
           <HapticPressable
             accessibilityLabel="Flip camera"
             accessibilityRole="button"
-            disabled={!permission?.granted || isProcessing}
+            disabled={captureDisabled}
             hapticType="selection"
             onPress={handleFlipCamera}
             style={({ pressed }) => [
               styles.secondaryControl,
-              (!permission?.granted || isProcessing) ? styles.controlDisabled : null,
-              pressed && permission?.granted && !isProcessing ? styles.secondaryControlPressed : null,
+              captureDisabled ? styles.controlDisabled : null,
+              pressed && !captureDisabled ? styles.secondaryControlPressed : null,
             ]}>
             <MaterialCommunityIcons
               color={Colors.brand.text}
@@ -198,13 +259,13 @@ export default function ScanScreen() {
           <HapticPressable
             accessibilityLabel="Capture waste item"
             accessibilityRole="button"
-            disabled={!permission?.granted || isProcessing}
+            disabled={captureDisabled}
             hapticType="medium"
             onPress={handleCapture}
             style={({ pressed }) => [
               styles.captureButton,
-              (!permission?.granted || isProcessing) ? styles.controlDisabled : null,
-              pressed && permission?.granted && !isProcessing ? styles.captureButtonPressed : null,
+              captureDisabled ? styles.controlDisabled : null,
+              pressed && !captureDisabled ? styles.captureButtonPressed : null,
             ]}>
             <View style={styles.captureButtonInner}>
               {isProcessing ? (
@@ -294,16 +355,24 @@ const styles = StyleSheet.create({
     top: Spacing.lg,
     left: Spacing.lg,
   },
-  mockChip: {
+  classifierChip: {
     borderRadius: Radii.pill,
-    backgroundColor: 'rgba(11,127,85,0.88)',
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  mockChipText: {
+  classifierChipReady: {
+    backgroundColor: 'rgba(11,127,85,0.88)',
+  },
+  classifierChipLoading: {
+    backgroundColor: 'rgba(59,130,246,0.88)',
+  },
+  classifierChipError: {
+    backgroundColor: 'rgba(220,38,38,0.88)',
+  },
+  classifierChipText: {
     color: Colors.brand.onPrimary,
     fontSize: FontSizes.caption,
     lineHeight: LineHeights.caption,
@@ -330,6 +399,13 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.sm,
     lineHeight: 22,
     fontFamily: Fonts.sans,
+  },
+  cameraErrorBody: {
+    color: '#FECACA',
+    fontSize: FontSizes.caption,
+    lineHeight: 20,
+    fontFamily: Fonts.sans,
+    marginTop: Spacing.sm,
   },
   processingOverlay: {
     ...StyleSheet.absoluteFillObject,

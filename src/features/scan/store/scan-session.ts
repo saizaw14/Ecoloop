@@ -1,12 +1,12 @@
-import type { MockClassificationResult } from '@/features/scan/services/mock-classification-service';
+import type { WasteClassificationResult } from '@/features/scan/services/waste-classification-service';
 
-let latestScanResult: MockClassificationResult | null = null;
+let latestScanResult: WasteClassificationResult | null = null;
 
 export function getLatestScanResult() {
   return latestScanResult;
 }
 
-export function setLatestScanResult(result: MockClassificationResult) {
+export function setLatestScanResult(result: WasteClassificationResult) {
   latestScanResult = result;
 }
 
