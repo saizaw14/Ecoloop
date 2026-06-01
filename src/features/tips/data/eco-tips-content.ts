@@ -81,6 +81,8 @@ const fallbackVisuals: TipVisuals = {
   iconName: 'leaf',
 };
 
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
 export const ecoTips: EcoTip[] = ecoTipsData.tips.map((tip) => {
   const visuals = tipVisualsByCategory[tip.category] ?? fallbackVisuals;
 
@@ -97,7 +99,23 @@ export const ecoTips: EcoTip[] = ecoTipsData.tips.map((tip) => {
 
 export const ecoTipCategories = ecoTipsData.categories;
 
-export const ecoTipOfTheDay = ecoTips.find((tip) => tip.id === 8) ?? ecoTips[0];
+function getCalendarDayNumber(date: Date) {
+  return Math.floor(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MILLISECONDS_PER_DAY
+  );
+}
+
+export function getEcoTipOfTheDay(date = new Date()) {
+  const fallbackTip = ecoTips[0];
+
+  if (!fallbackTip) {
+    throw new Error('Eco tips data is empty.');
+  }
+
+  const tipIndex = getCalendarDayNumber(date) % ecoTips.length;
+
+  return ecoTips[tipIndex] ?? fallbackTip;
+}
 
 export function getEcoTipById(id: number) {
   return ecoTips.find((tip) => tip.id === id);
