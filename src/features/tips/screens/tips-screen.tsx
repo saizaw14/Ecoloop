@@ -17,8 +17,8 @@ import {
   Spacing,
 } from '@/constants/theme';
 import {
-  ecoTipOfTheDay,
   getEcoTipById,
+  getEcoTipOfTheDay,
   type EcoTip,
 } from '@/features/tips/data/eco-tips-content';
 import { auth } from '@/firebase/firebaseConfig';
@@ -34,6 +34,7 @@ export default function TipsScreen() {
   const [savedTipIds, setSavedTipIds] = useState<number[]>([]);
   const [pendingTipId, setPendingTipId] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [tipOfTheDay, setTipOfTheDay] = useState<EcoTip>(() => getEcoTipOfTheDay());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -54,6 +55,25 @@ export default function TipsScreen() {
 
     return subscribeToSavedTipIds(userId, setSavedTipIds);
   }, [userId]);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    function scheduleNextTipRefresh() {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 0);
+
+      timeoutId = setTimeout(() => {
+        setTipOfTheDay(getEcoTipOfTheDay());
+        scheduleNextTipRefresh();
+      }, nextMidnight.getTime() - now.getTime());
+    }
+
+    scheduleNextTipRefresh();
+
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   const savedTips = savedTipIds
     .slice()
@@ -87,8 +107,8 @@ export default function TipsScreen() {
     }
   }
 
-  const isFeaturedSaved = savedTipIds.includes(ecoTipOfTheDay.id);
-  const isFeaturedPending = pendingTipId === ecoTipOfTheDay.id;
+  const isFeaturedSaved = savedTipIds.includes(tipOfTheDay.id);
+  const isFeaturedPending = pendingTipId === tipOfTheDay.id;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -146,11 +166,11 @@ export default function TipsScreen() {
                   <View
                     style={[
                       styles.tipIconBadge,
-                      { backgroundColor: ecoTipOfTheDay.iconBackgroundColor },
+                      { backgroundColor: tipOfTheDay.iconBackgroundColor },
                     ]}>
                     <MaterialCommunityIcons
-                      color={ecoTipOfTheDay.iconColor}
-                      name={ecoTipOfTheDay.iconName}
+                      color={tipOfTheDay.iconColor}
+                      name={tipOfTheDay.iconName}
                       size={22}
                     />
                   </View>
@@ -158,11 +178,11 @@ export default function TipsScreen() {
                   <HapticPressable
                     accessibilityLabel={
                       isFeaturedSaved ? 'Remove tip from saved tips' : 'Save tip to saved tips'
-                    }
-                    accessibilityRole="button"
-                    hapticType="selection"
-                    onPress={() => handleToggleSaved(ecoTipOfTheDay)}
-                    style={styles.saveButton}>
+                     }
+                     accessibilityRole="button"
+                     hapticType="selection"
+                     onPress={() => handleToggleSaved(tipOfTheDay)}
+                     style={styles.saveButton}>
                     {isFeaturedPending ? (
                       <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
                     ) : (
@@ -175,11 +195,11 @@ export default function TipsScreen() {
                   </HapticPressable>
                 </View>
 
-                <Text style={styles.tipTitle}>{ecoTipOfTheDay.title}</Text>
-                <Text style={styles.tipDescription}>{ecoTipOfTheDay.description}</Text>
+                <Text style={styles.tipTitle}>{tipOfTheDay.title}</Text>
+                <Text style={styles.tipDescription}>{tipOfTheDay.description}</Text>
 
                 <View style={styles.tipCategoryChip}>
-                  <Text style={styles.tipCategoryText}>{ecoTipOfTheDay.category}</Text>
+                  <Text style={styles.tipCategoryText}>{tipOfTheDay.category}</Text>
                 </View>
               </View>
             </View>
