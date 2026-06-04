@@ -24,13 +24,27 @@ import {
   Radii,
   Spacing,
 } from '@/constants/theme';
-import { getWasteCategory } from '@/features/categories/data/category-content';
+import {
+  getWasteCategories,
+  type WasteCategorySlug,
+} from '@/features/categories/data/category-content';
 import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
+import { calculateWasteEcoPoints } from '@/features/scan/services/waste-sorting-rewards';
 import { auth, db } from '@/firebase/firebaseConfig';
 import { logoutUser } from '@/services/authService';
 import { subscribeToSavedTipIds } from '@/services/tipsService';
 
 const POINTS_PER_LEVEL = 50;
+const CO2_KG_PER_TREE = 0.8;
+
+const categoryIconSoftBackgroundColors: Record<WasteCategorySlug, string> = {
+  cardboard: '#FCE8D8',
+  glass: '#DAF5F1',
+  metal: '#E8EDF3',
+  paper: '#F0E8FB',
+  plastic: '#E0F5EA',
+  general: '#FEE8E4',
+};
 
 type ProfileTab = 'overview' | 'settings';
 
@@ -150,29 +164,31 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  const totalRecyclableItems = Object.entries(categoryScanCounts).reduce((total, [slug, count]) => {
-    if (typeof count !== 'number' || !Number.isFinite(count)) {
-      return total;
-    }
-
-    const category = getWasteCategory(slug);
-
-    if (!category?.recyclable) {
-      return total;
-    }
-
-    return total + Math.max(0, Math.floor(count));
-  }, 0);
-
   const currentLevel = Math.floor(totalEcoPoints / POINTS_PER_LEVEL) + 1;
   const nextLevel = currentLevel + 1;
   const progressWithinLevel = totalEcoPoints % POINTS_PER_LEVEL;
   const progressRatio = progressWithinLevel / POINTS_PER_LEVEL;
   const pointsToNextLevel = POINTS_PER_LEVEL - progressWithinLevel;
+  const progressPercentage = Math.round(progressRatio * 100);
   const progressFillWidth =
     progressRatio === 0 ? ('0%' as const) : (`${Math.max(progressRatio * 100, 8).toFixed(0)}%` as `${number}%`);
   const hasActivity = totalScans > 0;
   const isSignedIn = Boolean(profile.userId);
+  const treeEquivalent = totalCO2Saved > 0 ? Math.max(1, Math.round(totalCO2Saved / CO2_KG_PER_TREE)) : 0;
+  const scannedCategories = getWasteCategories(categoryScanCounts).filter(
+    (category) => category.sortedCount > 0
+  );
+  const topCategories = scannedCategories
+    .map((category) => ({
+      ...category,
+      pointsEarned: category.sortedCount * calculateWasteEcoPoints(category.slug, false),
+    }))
+    .sort(
+      (leftCategory, rightCategory) =>
+        rightCategory.pointsEarned - leftCategory.pointsEarned ||
+        rightCategory.sortedCount - leftCategory.sortedCount
+    )
+    .slice(0, 3);
 
   async function handleConfirmSignOut() {
     if (!isSignedIn) {
@@ -315,14 +331,52 @@ export default function ProfileScreen() {
           <View style={styles.bodyContent}>
             {selectedTab === 'overview' ? (
               <>
-                <View style={styles.card}>
+                <View style={styles.progressCard}>
+                  <View pointerEvents="none" style={styles.progressGlow} />
+
                   <View style={styles.progressHeader}>
-                    <Text style={styles.progressTitle}>{`Progress to Level ${nextLevel}`}</Text>
-                    <Text style={styles.progressValue}>{`${pointsToNextLevel} pts to go`}</Text>
+                    <View style={styles.progressCopy}>
+                      <View style={styles.progressLevelChip}>
+                        <MaterialCommunityIcons
+                          color={Colors.brand.primaryDark}
+                          name="medal-outline"
+                          size={14}
+                        />
+                        <Text style={styles.progressLevelChipText}>{`Level ${currentLevel}`}</Text>
+                      </View>
+
+                      <Text style={styles.progressTitle}>{`Progress to Level ${nextLevel}`}</Text>
+                      <Text style={styles.progressSubtitle}>
+                        {hasActivity
+                          ? 'Keep scanning to unlock your next level reward.'
+                          : 'Start scanning items to begin building your progress.'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.progressSummary}>
+                      <Text style={styles.progressValue}>{pointsToNextLevel}</Text>
+                      <Text style={styles.progressValueLabel}>pts to go</Text>
+                    </View>
                   </View>
 
                   <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: progressFillWidth }]} />
+                  </View>
+
+                  <View style={styles.progressMetaRow}>
+                    <Text style={styles.progressMetaText}>{`${progressWithinLevel}/${POINTS_PER_LEVEL} pts`}</Text>
+                    <Text style={styles.progressMetaText}>{`${progressPercentage}% complete`}</Text>
+                  </View>
+
+                  <View style={styles.progressHintRow}>
+                    <MaterialCommunityIcons
+                      color={Colors.brand.primaryDark}
+                      name="star-four-points"
+                      size={14}
+                    />
+                    <Text style={styles.progressHintText}>
+                      Earn more points by scanning recyclable items and sorting them correctly.
+                    </Text>
                   </View>
                 </View>
 
@@ -340,7 +394,7 @@ export default function ProfileScreen() {
                     <HapticPressable
                       accessibilityRole="button"
                       hapticType="selection"
-                      onPress={() => router.push('/categories')}
+                      onPress={() => router.push('/impact-details')}
                       style={styles.inlineAction}>
                       <Text style={styles.inlineActionText}>View All</Text>
                       <MaterialCommunityIcons
@@ -361,48 +415,70 @@ export default function ProfileScreen() {
                         <Text style={styles.impactLabel}>CO2 Saved</Text>
                         <Text style={styles.impactValue}>{formatWeightReadable(totalCO2Saved)}</Text>
                         <Text style={styles.impactBody}>
-                          {hasActivity
-                            ? `Measured across ${formatWholeNumber(totalScans)} sorted items.`
+                          {hasActivity && treeEquivalent > 0
+                            ? `Equivalent to planting ${treeEquivalent} tree${
+                                treeEquivalent === 1 ? '' : 's'
+                              }`
                             : 'Start scanning items to measure your climate impact.'}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={styles.impactRow}>
-                      <View style={[styles.impactIconWrap, { backgroundColor: '#DDEBFF' }]}>
+                  </View>
+
+                  {hasActivity ? (
+                    <View style={styles.topCategoriesSection}>
+                      <View style={styles.topCategoriesHeader}>
                         <MaterialCommunityIcons
-                          color="#4A7DFF"
-                          name="image-filter-hdr-outline"
-                          size={20}
+                          color={Colors.brand.primaryDark}
+                          name="chart-box-outline"
+                          size={18}
                         />
+                        <Text style={styles.topCategoriesTitle}>Top Categories</Text>
                       </View>
 
-                      <View style={styles.impactCopy}>
-                        <Text style={styles.impactLabel}>Landfill Reduction</Text>
-                        <Text style={styles.impactValue}>
-                          {`${formatWholeNumber(totalRecyclableItems)} item${
-                            totalRecyclableItems === 1 ? '' : 's'
-                          }`}
-                        </Text>
-                        <Text style={styles.impactBody}>
-                          {totalRecyclableItems > 0
-                            ? 'Recyclable items diverted from mixed waste.'
-                            : 'Sort recyclable items to grow this number.'}
-                        </Text>
+                      <View style={styles.topCategoriesList}>
+                        {topCategories.map((category) => (
+                          <View key={category.slug} style={styles.topCategoryRow}>
+                            <View
+                              style={[
+                                styles.topCategoryIconWrap,
+                                {
+                                  backgroundColor:
+                                    categoryIconSoftBackgroundColors[category.slug],
+                                },
+                              ]}>
+                              <MaterialCommunityIcons
+                                color={category.iconBackgroundColor}
+                                name={category.iconName}
+                                size={20}
+                              />
+                            </View>
+
+                            <View style={styles.topCategoryCopy}>
+                              <Text style={styles.topCategoryName}>{category.name}</Text>
+                              <Text style={styles.topCategorySubtitle}>
+                                {`${category.sortedCount} item${
+                                  category.sortedCount === 1 ? '' : 's'
+                                } sorted`}
+                              </Text>
+                            </View>
+
+                            <Text style={styles.topCategoryPoints}>
+                              {`${formatWholeNumber(category.pointsEarned)} pts`}
+                            </Text>
+                          </View>
+                        ))}
                       </View>
                     </View>
-                  </View>
-
-                  <View style={styles.impactEmptyState}>
-                    <Text style={styles.impactEmptyTitle}>
-                      {hasActivity ? 'Keep the momentum going' : 'No recycling activity yet'}
-                    </Text>
-                    <Text style={styles.impactEmptyBody}>
-                      {hasActivity
-                        ? 'Every additional scan helps you level up and expand your impact.'
-                        : 'Start scanning items to track your impact!'}
-                    </Text>
-                  </View>
+                  ) : (
+                    <View style={styles.impactEmptyState}>
+                      <Text style={styles.impactEmptyTitle}>No recycling activity yet</Text>
+                      <Text style={styles.impactEmptyBody}>
+                        Start scanning items to track your impact!
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </>
             ) : (
@@ -705,29 +781,90 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 4,
   },
+  progressCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 22,
+    backgroundColor: '#F9FFFC',
+    padding: Spacing.lg,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  progressGlow: {
+    position: 'absolute',
+    top: -32,
+    right: -22,
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: 'rgba(10, 163, 108, 0.10)',
+  },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: Spacing.md,
     gap: Spacing.md,
   },
-  progressTitle: {
-    color: Colors.brand.text,
-    fontSize: FontSizes.bodyLarge,
-    lineHeight: LineHeights.bodyLarge,
+  progressCopy: {
+    flex: 1,
+    gap: Spacing.xs,
+    paddingRight: Spacing.md,
+  },
+  progressLevelChip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: Radii.pill,
+    backgroundColor: '#DFF7EC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 2,
+  },
+  progressLevelChipText: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
+  progressTitle: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.subtitle,
+    lineHeight: LineHeights.subtitle,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  progressSubtitle: {
+    color: '#5C7380',
+    fontSize: FontSizes.sm,
+    lineHeight: 21,
+    fontFamily: Fonts.sans,
+  },
+  progressSummary: {
+    minWidth: 76,
+    alignItems: 'flex-end',
+  },
   progressValue: {
     color: Colors.brand.primaryDark,
-    fontSize: FontSizes.body,
-    lineHeight: LineHeights.body,
+    fontSize: 28,
+    lineHeight: 30,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  progressValueLabel: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
   progressTrack: {
-    height: 8,
+    height: 10,
     borderRadius: Radii.pill,
     backgroundColor: '#E8ECEF',
     overflow: 'hidden',
@@ -736,6 +873,36 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: Radii.pill,
     backgroundColor: Colors.brand.primary,
+  },
+  progressMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+    gap: Spacing.md,
+  },
+  progressMetaText: {
+    color: '#718096',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  progressHintRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E4F1EB',
+  },
+  progressHintText: {
+    flex: 1,
+    color: '#5C7380',
+    fontSize: FontSizes.caption,
+    lineHeight: 20,
+    fontFamily: Fonts.sans,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -827,6 +994,61 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontFamily: Fonts.sans,
     textAlign: 'center',
+  },
+  topCategoriesSection: {
+    marginTop: Spacing.xl,
+    gap: Spacing.md,
+  },
+  topCategoriesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  topCategoriesTitle: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  topCategoriesList: {
+    gap: Spacing.md,
+  },
+  topCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  topCategoryIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topCategoryCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  topCategoryName: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.body,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  topCategorySubtitle: {
+    color: '#7B8798',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+  },
+  topCategoryPoints: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
   },
   settingsSectionTitle: {
     color: Colors.brand.text,
