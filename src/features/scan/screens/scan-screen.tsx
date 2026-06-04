@@ -47,13 +47,11 @@ export default function ScanScreen() {
         if (isMounted) {
           setClassifierStatus('ready');
         }
-      } catch (error) {
+      } catch {
         if (isMounted) {
           setClassifierStatus('error');
           setClassifierErrorMessage(
-            error instanceof Error
-              ? error.message
-              : 'The TensorFlow.js model could not be prepared.'
+            'We could not get the scanner ready right now. Please try again in a moment.'
           );
         }
       }
@@ -113,10 +111,10 @@ export default function ScanScreen() {
         : styles.classifierChipLoading;
   const classifierChipText =
     classifierStatus === 'error'
-      ? 'Model Error'
+      ? 'Scanner unavailable'
       : classifierStatus === 'ready'
-        ? 'TensorFlow.js Ready'
-        : 'Loading TensorFlow.js';
+        ? 'Ready to scan'
+        : 'Preparing scanner';
 
   function renderCameraContent() {
     if (!permission) {
@@ -125,7 +123,7 @@ export default function ScanScreen() {
           <ActivityIndicator color={Colors.brand.primaryDark} size="large" />
           <Text style={styles.permissionTitle}>Preparing camera</Text>
           <Text style={styles.permissionBody}>
-            We&apos;re getting the camera ready for your waste classification flow.
+            We&apos;re getting everything ready so you can scan your item.
           </Text>
         </View>
       );
@@ -144,8 +142,8 @@ export default function ScanScreen() {
 
           <Text style={styles.permissionTitle}>Camera access needed</Text>
           <Text style={styles.permissionBody}>
-            Allow camera access so EcoLoop can capture a waste item and run on-device
-            waste classification.
+            Allow camera access so EcoLoop can scan your item and suggest the right
+            waste category.
           </Text>
 
           <HapticPressable
@@ -180,7 +178,7 @@ export default function ScanScreen() {
         <View pointerEvents="none" style={styles.cameraBottomOverlay}>
           <Text style={styles.cameraHintTitle}>Frame your waste item clearly</Text>
           <Text style={styles.cameraHintBody}>
-            Capture one item at a time for the best TensorFlow.js classification
+            Capture one item at a time in good lighting for the most accurate
             result.
           </Text>
           {classifierStatus === 'error' && classifierErrorMessage ? (
@@ -191,10 +189,10 @@ export default function ScanScreen() {
         {isProcessing ? (
           <View style={styles.processingOverlay}>
             <ActivityIndicator color={Colors.brand.onPrimary} size="large" />
-            <Text style={styles.processingTitle}>Classifying image...</Text>
+            <Text style={styles.processingTitle}>Checking your item...</Text>
             <Text style={styles.processingBody}>
-              We&apos;re running the bundled TensorFlow.js model on this captured
-              waste item.
+              We&apos;re identifying your item and matching it to the most likely
+              waste category.
             </Text>
           </View>
         ) : null}
@@ -211,7 +209,8 @@ export default function ScanScreen() {
             <View style={styles.headerCopy}>
               <Text style={styles.headerTitle}>Scan Waste Item</Text>
               <Text style={styles.headerSubtitle}>
-                Capture a photo to test your on-device waste classifier in Expo Go.
+                Take a clear photo and EcoLoop will help you sort it into the right
+                category.
               </Text>
             </View>
 

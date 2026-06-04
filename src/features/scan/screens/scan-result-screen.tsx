@@ -68,8 +68,7 @@ export default function ScanResultScreen() {
           </View>
           <Text style={styles.emptyTitle}>No scan result yet</Text>
           <Text style={styles.emptyBody}>
-            Capture a waste item first so we can show the TensorFlow.js classification
-            result.
+            Capture a waste item first so we can show your scan result.
           </Text>
           <HapticPressable
             accessibilityRole="button"
