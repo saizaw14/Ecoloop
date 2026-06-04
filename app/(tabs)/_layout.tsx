@@ -82,6 +82,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="impact-details"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
