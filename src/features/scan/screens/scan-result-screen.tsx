@@ -46,6 +46,12 @@ export default function ScanResultScreen() {
 
   function handleDiscardToCamera() {
     clearLatestScanResult();
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
     router.replace('/scan' as Href);
   }
 

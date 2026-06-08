@@ -394,7 +394,7 @@ export default function ProfileScreen() {
                     <HapticPressable
                       accessibilityRole="button"
                       hapticType="selection"
-                      onPress={() => router.push('/impact-details')}
+                      onPress={() => router.push('/profile/impact-details')}
                       style={styles.inlineAction}>
                       <Text style={styles.inlineActionText}>View All</Text>
                       <MaterialCommunityIcons

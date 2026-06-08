@@ -229,6 +229,15 @@ export default function ImpactDetailsScreen() {
     (achievement) => achievement.unlocked
   ).length;
 
+  function handleBackToImpact() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/profile');
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
@@ -237,7 +246,7 @@ export default function ImpactDetailsScreen() {
           <HapticPressable
             accessibilityRole="button"
             hapticType="selection"
-            onPress={() => router.back()}
+            onPress={handleBackToImpact}
             style={styles.backButton}>
             <MaterialCommunityIcons
               color={Colors.brand.body}

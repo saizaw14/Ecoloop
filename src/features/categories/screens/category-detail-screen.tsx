@@ -27,6 +27,11 @@ export default function CategoryDetailScreen() {
     : undefined;
 
   function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
     router.replace('/categories' as Href);
   }
 
@@ -39,7 +44,7 @@ export default function CategoryDetailScreen() {
           <HapticPressable
             accessibilityRole="button"
             hapticType="selection"
-            onPress={() => router.replace('/categories' as Href)}
+            onPress={handleBack}
             style={styles.backButton}>
             <MaterialCommunityIcons
               color={Colors.brand.body}
