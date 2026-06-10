@@ -365,109 +365,123 @@ export default function ProfileScreen() {
       <StatusBar style="dark" />
       <View style={styles.screen}>
         <ScrollView
-          alwaysBounceVertical={false}
-          bounces={false}
-          contentContainerStyle={styles.scrollContent}
-          overScrollMode="never"
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, Spacing.xl) + Spacing.xl },
+          ]}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View style={styles.heroSection}>
-            <View pointerEvents="none" style={styles.heroGlowOne} />
-            <View pointerEvents="none" style={styles.heroGlowTwo} />
-            <View pointerEvents="none" style={styles.heroGlowThree} />
+          <View style={styles.pageContent}>
+            <View style={styles.heroSection}>
+              <View pointerEvents="none" style={styles.heroAccentLarge} />
+              <View pointerEvents="none" style={styles.heroAccentSmall} />
 
-            <View style={styles.heroContent}>
-              <View style={styles.avatarCircle}>
-                <MaterialCommunityIcons
-                  color={Colors.brand.primaryDark}
-                  name="account-outline"
-                  size={40}
-                />
+              <View style={styles.profileHeaderRow}>
+                <View style={styles.avatarCircle}>
+                  <MaterialCommunityIcons
+                    color={Colors.brand.primaryDark}
+                    name="account-outline"
+                    size={34}
+                  />
+                </View>
+
+                <View style={styles.profileHeaderCopy}>
+                  <Text style={styles.profileEyebrow}>Profile</Text>
+                  <Text numberOfLines={1} style={styles.profileName}>
+                    {profile.displayName}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.profileEmail}>
+                    {profile.email}
+                  </Text>
+                </View>
               </View>
 
-              <Text numberOfLines={1} style={styles.profileName}>
-                {profile.displayName}
-              </Text>
-              <Text numberOfLines={1} style={styles.profileEmail}>
-                {profile.email}
-              </Text>
+              <View style={styles.levelRow}>
+                <View style={styles.levelBadge}>
+                  <MaterialCommunityIcons
+                    color={Colors.brand.primaryDark}
+                    name="medal-outline"
+                    size={16}
+                  />
+                  <Text style={styles.levelBadgeText}>{`Level ${currentLevel} Eco Champion`}</Text>
+                </View>
 
-              <View style={styles.levelBadge}>
-                <MaterialCommunityIcons color={Colors.brand.onPrimary} name="medal-outline" size={16} />
-                <Text style={styles.levelBadgeText}>{`Level ${currentLevel} Eco Champion`}</Text>
+                <Text style={styles.levelSupportText}>
+                  {hasActivity
+                    ? `${pointsToNextLevel} points until Level ${nextLevel}`
+                    : 'Start scanning items to begin your progress.'}
+                </Text>
               </View>
 
               <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <View style={[styles.statIconWrap, { backgroundColor: 'rgba(255, 203, 86, 0.16)' }]}>
-                    <MaterialCommunityIcons color="#FFD15C" name="star-four-points" size={18} />
+                <View style={[styles.statCard, styles.statCardWarm]}>
+                  <View style={[styles.statIconWrap, { backgroundColor: '#FFF4CC' }]}>
+                    <MaterialCommunityIcons color="#D8A114" name="star-four-points" size={18} />
                   </View>
                   <Text style={styles.statValue}>{formatWholeNumber(totalEcoPoints)}</Text>
                   <Text style={styles.statLabel}>Points</Text>
                 </View>
 
-                <View style={styles.statCard}>
-                  <View style={[styles.statIconWrap, { backgroundColor: 'rgba(111, 231, 211, 0.16)' }]}>
-                    <MaterialCommunityIcons color="#73F0D1" name="recycle" size={18} />
+                <View style={[styles.statCard, styles.statCardMint]}>
+                  <View style={[styles.statIconWrap, { backgroundColor: '#DFF7EC' }]}>
+                    <MaterialCommunityIcons color="#19966B" name="recycle" size={18} />
                   </View>
                   <Text style={styles.statValue}>{formatWholeNumber(totalScans)}</Text>
                   <Text style={styles.statLabel}>Items</Text>
                 </View>
 
-                <View style={styles.statCard}>
-                  <View style={[styles.statIconWrap, { backgroundColor: 'rgba(129, 199, 255, 0.16)' }]}>
-                    <MaterialCommunityIcons color="#8FD3FF" name="earth" size={18} />
+                <View style={[styles.statCard, styles.statCardSky]}>
+                  <View style={[styles.statIconWrap, { backgroundColor: '#E3F1FF' }]}>
+                    <MaterialCommunityIcons color="#3B82F6" name="earth" size={18} />
                   </View>
                   <Text style={styles.statValue}>{formatWeightCompact(totalCO2Saved)}</Text>
                   <Text style={styles.statLabel}>CO2 Saved</Text>
                 </View>
               </View>
-
-              <View style={styles.segmentedControl}>
-                <HapticPressable
-                  accessibilityRole="button"
-                  hapticType="selection"
-                  onPress={() => setSelectedTab('overview')}
-                  style={({ pressed }) => [
-                    styles.segmentButton,
-                    selectedTab === 'overview' ? styles.segmentButtonActive : null,
-                    pressed ? styles.segmentButtonPressed : null,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.segmentButtonText,
-                      selectedTab === 'overview' ? styles.segmentButtonTextActive : null,
-                    ]}>
-                    Overview
-                  </Text>
-                </HapticPressable>
-
-                <HapticPressable
-                  accessibilityRole="button"
-                  hapticType="selection"
-                  onPress={() => setSelectedTab('settings')}
-                  style={({ pressed }) => [
-                    styles.segmentButton,
-                    selectedTab === 'settings' ? styles.segmentButtonActive : null,
-                    pressed ? styles.segmentButtonPressed : null,
-                  ]}>
-                  <Text
-                    style={[
-                      styles.segmentButtonText,
-                      selectedTab === 'settings' ? styles.segmentButtonTextActive : null,
-                    ]}>
-                    Settings
-                  </Text>
-                </HapticPressable>
-              </View>
             </View>
-          </View>
 
-          <View style={styles.bodyContent}>
+            <View style={styles.segmentedControl}>
+              <HapticPressable
+                accessibilityRole="button"
+                hapticType="selection"
+                onPress={() => setSelectedTab('overview')}
+                style={({ pressed }) => [
+                  styles.segmentButton,
+                  selectedTab === 'overview' ? styles.segmentButtonActive : null,
+                  pressed ? styles.segmentButtonPressed : null,
+                ]}>
+                <Text
+                  style={[
+                    styles.segmentButtonText,
+                    selectedTab === 'overview' ? styles.segmentButtonTextActive : null,
+                  ]}>
+                  Overview
+                </Text>
+              </HapticPressable>
+
+              <HapticPressable
+                accessibilityRole="button"
+                hapticType="selection"
+                onPress={() => setSelectedTab('settings')}
+                style={({ pressed }) => [
+                  styles.segmentButton,
+                  selectedTab === 'settings' ? styles.segmentButtonActive : null,
+                  pressed ? styles.segmentButtonPressed : null,
+                ]}>
+                <Text
+                  style={[
+                    styles.segmentButtonText,
+                    selectedTab === 'settings' ? styles.segmentButtonTextActive : null,
+                  ]}>
+                  Settings
+                </Text>
+              </HapticPressable>
+            </View>
+
             {selectedTab === 'overview' ? (
               <>
                 <View style={styles.progressCard}>
-                  <View pointerEvents="none" style={styles.progressGlow} />
-
                   <View style={styles.progressHeader}>
                     <View style={styles.progressCopy}>
                       <View style={styles.progressLevelChip}>
@@ -540,24 +554,25 @@ export default function ProfileScreen() {
                   </View>
 
                   <View style={styles.impactList}>
-                    <View style={styles.impactRow}>
-                      <View style={[styles.impactIconWrap, { backgroundColor: '#D9F8EC' }]}>
-                        <MaterialCommunityIcons color="#23B980" name="earth" size={20} />
-                      </View>
+                    <View style={styles.impactHighlightCard}>
+                      <View style={styles.impactRow}>
+                        <View style={[styles.impactIconWrap, { backgroundColor: '#D9F8EC' }]}>
+                          <MaterialCommunityIcons color="#23B980" name="earth" size={20} />
+                        </View>
 
-                      <View style={styles.impactCopy}>
-                        <Text style={styles.impactLabel}>CO2 Saved</Text>
-                        <Text style={styles.impactValue}>{formatWeightReadable(totalCO2Saved)}</Text>
-                        <Text style={styles.impactBody}>
-                          {hasActivity && treeEquivalent > 0
-                            ? `Equivalent to planting ${treeEquivalent} tree${
-                                treeEquivalent === 1 ? '' : 's'
-                              }`
-                            : 'Start scanning items to measure your climate impact.'}
-                        </Text>
+                        <View style={styles.impactCopy}>
+                          <Text style={styles.impactLabel}>CO2 Saved</Text>
+                          <Text style={styles.impactValue}>{formatWeightReadable(totalCO2Saved)}</Text>
+                          <Text style={styles.impactBody}>
+                            {hasActivity && treeEquivalent > 0
+                              ? `Equivalent to planting ${treeEquivalent} tree${
+                                  treeEquivalent === 1 ? '' : 's'
+                                }`
+                              : 'Start scanning items to measure your climate impact.'}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-
                   </View>
 
                   {hasActivity ? (
@@ -598,9 +613,11 @@ export default function ProfileScreen() {
                               </Text>
                             </View>
 
-                            <Text style={styles.topCategoryPoints}>
-                              {`${formatWholeNumber(category.pointsEarned)} pts`}
-                            </Text>
+                            <View style={styles.topCategoryPointsBadge}>
+                              <Text style={styles.topCategoryPoints}>
+                                {`${formatWholeNumber(category.pointsEarned)} pts`}
+                              </Text>
+                            </View>
                           </View>
                         ))}
                       </View>
@@ -618,7 +635,10 @@ export default function ProfileScreen() {
             ) : (
               <>
                 <View style={styles.card}>
-                  <Text style={styles.settingsSectionTitle}>Account</Text>
+                  <Text style={styles.settingsSectionTitle}>Manage Account</Text>
+                  <Text style={styles.settingsSectionBody}>
+                    Update your profile details, email, and privacy preferences in one place.
+                  </Text>
 
                   <HapticPressable
                     accessibilityRole="button"
@@ -629,17 +649,24 @@ export default function ProfileScreen() {
                       pressed ? styles.actionRowPressed : null,
                     ]}>
                     <View style={styles.settingsMenuLeading}>
-                      <MaterialCommunityIcons
-                        color={Colors.brand.body}
-                        name="account-outline"
-                        size={18}
-                      />
-                      <Text style={styles.settingsMenuLabel}>Edit Profile</Text>
+                      <View style={styles.settingsMenuIconWrap}>
+                        <MaterialCommunityIcons
+                          color={Colors.brand.primaryDark}
+                          name="account-outline"
+                          size={18}
+                        />
+                      </View>
+                      <View style={styles.settingsMenuCopy}>
+                        <Text style={styles.settingsMenuLabel}>Edit Profile</Text>
+                        <Text style={styles.settingsMenuHint}>Change your name and profile details.</Text>
+                      </View>
                     </View>
-                    <MaterialCommunityIcons color="#B0B8C4" name="chevron-right" size={18} />
+                    <View style={styles.settingsMenuArrowWrap}>
+                      <MaterialCommunityIcons color={Colors.brand.primaryDark} name="chevron-right" size={18} />
+                    </View>
                   </HapticPressable>
 
-                  <View style={styles.settingsDivider} />
+                  <View style={styles.settingsMenuSpacer} />
 
                   <HapticPressable
                     accessibilityRole="button"
@@ -650,13 +677,24 @@ export default function ProfileScreen() {
                       pressed ? styles.actionRowPressed : null,
                     ]}>
                     <View style={styles.settingsMenuLeading}>
-                      <MaterialCommunityIcons color={Colors.brand.body} name="email-outline" size={18} />
-                      <Text style={styles.settingsMenuLabel}>Change Email</Text>
+                      <View style={styles.settingsMenuIconWrap}>
+                        <MaterialCommunityIcons
+                          color={Colors.brand.primaryDark}
+                          name="email-outline"
+                          size={18}
+                        />
+                      </View>
+                      <View style={styles.settingsMenuCopy}>
+                        <Text style={styles.settingsMenuLabel}>Change Email</Text>
+                        <Text style={styles.settingsMenuHint}>Prepare a secure update for your account email.</Text>
+                      </View>
                     </View>
-                    <MaterialCommunityIcons color="#B0B8C4" name="chevron-right" size={18} />
+                    <View style={styles.settingsMenuArrowWrap}>
+                      <MaterialCommunityIcons color={Colors.brand.primaryDark} name="chevron-right" size={18} />
+                    </View>
                   </HapticPressable>
 
-                  <View style={styles.settingsDivider} />
+                  <View style={styles.settingsMenuSpacer} />
 
                   <HapticPressable
                     accessibilityRole="button"
@@ -667,10 +705,21 @@ export default function ProfileScreen() {
                       pressed ? styles.actionRowPressed : null,
                     ]}>
                     <View style={styles.settingsMenuLeading}>
-                      <MaterialCommunityIcons color={Colors.brand.body} name="shield-outline" size={18} />
-                      <Text style={styles.settingsMenuLabel}>Privacy & Security</Text>
+                      <View style={styles.settingsMenuIconWrap}>
+                        <MaterialCommunityIcons
+                          color={Colors.brand.primaryDark}
+                          name="shield-outline"
+                          size={18}
+                        />
+                      </View>
+                      <View style={styles.settingsMenuCopy}>
+                        <Text style={styles.settingsMenuLabel}>Privacy & Security</Text>
+                        <Text style={styles.settingsMenuHint}>Control reminders, visibility, and app insights.</Text>
+                      </View>
                     </View>
-                    <MaterialCommunityIcons color="#B0B8C4" name="chevron-right" size={18} />
+                    <View style={styles.settingsMenuArrowWrap}>
+                      <MaterialCommunityIcons color={Colors.brand.primaryDark} name="chevron-right" size={18} />
+                    </View>
                   </HapticPressable>
                 </View>
 
@@ -684,18 +733,25 @@ export default function ProfileScreen() {
                     pressed ? styles.signOutButtonPressed : null,
                     isSigningOut ? styles.signOutButtonDisabled : null,
                   ]}>
-                  {isSigningOut ? (
-                    <ActivityIndicator color="#F04438" size="small" />
-                  ) : (
-                    <MaterialCommunityIcons
-                      color="#F04438"
-                      name="logout"
-                      size={18}
-                    />
-                  )}
-                  <Text style={styles.signOutButtonText}>
-                    {isSignedIn ? 'Log Out' : 'Go to Login'}
-                  </Text>
+                  <View style={styles.signOutIconWrap}>
+                    {isSigningOut ? (
+                      <ActivityIndicator color="#F04438" size="small" />
+                    ) : (
+                      <MaterialCommunityIcons
+                        color="#F04438"
+                        name="logout"
+                        size={18}
+                      />
+                    )}
+                  </View>
+                  <View style={styles.signOutCopy}>
+                    <Text style={styles.signOutButtonText}>
+                      {isSignedIn ? 'Log Out' : 'Go to Login'}
+                    </Text>
+                    <Text style={styles.signOutHint}>
+                      {isSignedIn ? 'You can sign back in anytime.' : 'Return to the login screen.'}
+                    </Text>
+                  </View>
                 </HapticPressable>
               </>
             )}
@@ -767,6 +823,7 @@ export default function ProfileScreen() {
 
                 <ScrollView
                   contentContainerStyle={styles.sheetScrollContent}
+                  keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}>
                   {activeSettingsSheet === 'edit-profile' ? (
                     <>
@@ -998,68 +1055,70 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F3FBF7',
+    backgroundColor: '#F6FAF8',
   },
   screen: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 132,
+    flexGrow: 1,
+  },
+  pageContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+    gap: Spacing.lg,
   },
   heroSection: {
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: '#0D9F7A',
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
-    shadowColor: '#0B7F55',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 6,
+    borderRadius: 28,
+    backgroundColor: '#0F8A68',
+    padding: Spacing.lg,
+    gap: Spacing.lg,
   },
-  heroGlowOne: {
+  heroAccentLarge: {
     position: 'absolute',
-    top: -44,
-    left: -30,
-    width: 176,
-    height: 176,
-    borderRadius: 88,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  heroGlowTwo: {
-    position: 'absolute',
-    right: -48,
-    top: 60,
+    top: -54,
+    right: -42,
     width: 170,
     height: 170,
     borderRadius: 85,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  heroGlowThree: {
+  heroAccentSmall: {
     position: 'absolute',
-    bottom: -72,
-    left: 70,
-    width: 240,
-    height: 140,
-    borderRadius: 90,
+    left: -24,
+    bottom: -54,
+    width: 126,
+    height: 126,
+    borderRadius: 63,
     backgroundColor: 'rgba(255,255,255,0.06)',
-    transform: [{ rotate: '-7deg' }],
   },
-  heroContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
+  profileHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.md,
+  },
+  profileHeaderCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  profileEyebrow: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
   },
   avatarCircle: {
-    width: 74,
-    height: 74,
+    width: 64,
+    height: 64,
     borderRadius: Radii.pill,
-    backgroundColor: Colors.brand.surface,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.20)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.md,
   },
   profileName: {
     color: Colors.brand.onPrimary,
@@ -1067,24 +1126,25 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.subtitle,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
-    marginBottom: 2,
   },
   profileEmail: {
-    color: 'rgba(255,255,255,0.94)',
+    color: 'rgba(255,255,255,0.86)',
     fontSize: FontSizes.sm,
     lineHeight: LineHeights.sm,
     fontFamily: Fonts.sans,
-    marginBottom: Spacing.md,
+  },
+  levelRow: {
+    gap: Spacing.sm,
   },
   levelBadge: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     borderRadius: Radii.pill,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     paddingHorizontal: Spacing.lg,
     paddingVertical: 10,
-    marginBottom: Spacing.lg,
   },
   levelBadgeText: {
     color: Colors.brand.onPrimary,
@@ -1093,21 +1153,38 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
+  levelSupportText: {
+    color: 'rgba(255,255,255,0.84)',
+    fontSize: FontSizes.sm,
+    lineHeight: 20,
+    fontFamily: Fonts.sans,
+  },
   statsRow: {
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: Spacing.sm,
-    marginBottom: Spacing.lg,
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
-    minHeight: 106,
+    minHeight: 96,
+  },
+  statCardWarm: {
+    backgroundColor: 'rgba(255, 245, 204, 0.18)',
+  },
+  statCardMint: {
+    backgroundColor: 'rgba(223, 247, 236, 0.14)',
+  },
+  statCardSky: {
+    backgroundColor: 'rgba(227, 241, 255, 0.14)',
   },
   statIconWrap: {
     width: 28,
@@ -1119,15 +1196,15 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: Colors.brand.onPrimary,
-    fontSize: 22,
-    lineHeight: 26,
+    fontSize: 20,
+    lineHeight: 24,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
-    textAlign: 'center',
     marginBottom: 4,
+    textAlign: 'center',
   },
   statLabel: {
-    color: 'rgba(255,255,255,0.92)',
+    color: 'rgba(255,255,255,0.82)',
     fontSize: FontSizes.caption,
     lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
@@ -1137,7 +1214,9 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     borderRadius: 20,
-    backgroundColor: Colors.brand.surface,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E1ECE6',
     padding: 4,
   },
   segmentButton: {
@@ -1149,14 +1228,9 @@ const styles = StyleSheet.create({
   },
   segmentButtonActive: {
     backgroundColor: Colors.brand.primaryDark,
-    shadowColor: Colors.brand.primaryDark,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 2,
   },
   segmentButtonPressed: {
-    opacity: 0.95,
+    opacity: 0.88,
   },
   segmentButtonText: {
     color: Colors.brand.body,
@@ -1168,41 +1242,19 @@ const styles = StyleSheet.create({
   segmentButtonTextActive: {
     color: Colors.brand.onPrimary,
   },
-  bodyContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-    gap: Spacing.lg,
-  },
   card: {
     borderRadius: 22,
     backgroundColor: Colors.brand.surface,
+    borderWidth: 1,
+    borderColor: '#E2EEE8',
     padding: Spacing.lg,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
   },
   progressCard: {
-    position: 'relative',
-    overflow: 'hidden',
     borderRadius: 22,
-    backgroundColor: '#F9FFFC',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D9E9E0',
     padding: Spacing.lg,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  progressGlow: {
-    position: 'absolute',
-    top: -32,
-    right: -22,
-    width: 128,
-    height: 128,
-    borderRadius: 64,
-    backgroundColor: 'rgba(10, 163, 108, 0.10)',
   },
   progressHeader: {
     flexDirection: 'row',
@@ -1250,6 +1302,12 @@ const styles = StyleSheet.create({
   progressSummary: {
     minWidth: 76,
     alignItems: 'flex-end',
+    borderRadius: 18,
+    backgroundColor: '#EFF8F2',
+    borderWidth: 1,
+    borderColor: '#D8ECE0',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   progressValue: {
     color: Colors.brand.primaryDark,
@@ -1266,15 +1324,15 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.medium,
   },
   progressTrack: {
-    height: 10,
+    height: 12,
     borderRadius: Radii.pill,
-    backgroundColor: '#E8ECEF',
+    backgroundColor: '#E7F0EA',
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     borderRadius: Radii.pill,
-    backgroundColor: Colors.brand.primary,
+    backgroundColor: '#12A36F',
   },
   progressMetaRow: {
     flexDirection: 'row',
@@ -1329,6 +1387,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    borderRadius: Radii.pill,
+    backgroundColor: '#EFF8F3',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   inlineActionText: {
     color: Colors.brand.primary,
@@ -1339,6 +1401,13 @@ const styles = StyleSheet.create({
   },
   impactList: {
     gap: Spacing.lg,
+  },
+  impactHighlightCard: {
+    borderRadius: 20,
+    backgroundColor: '#F5FBF8',
+    borderWidth: 1,
+    borderColor: '#E1EEE7',
+    padding: Spacing.md,
   },
   impactRow: {
     flexDirection: 'row',
@@ -1378,7 +1447,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
   impactEmptyState: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
     alignItems: 'center',
     gap: Spacing.sm,
   },
@@ -1398,7 +1467,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   topCategoriesSection: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.lg,
     gap: Spacing.md,
   },
   topCategoriesHeader: {
@@ -1414,12 +1483,18 @@ const styles = StyleSheet.create({
     fontWeight: FontWeights.medium,
   },
   topCategoriesList: {
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   topCategoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
+    borderRadius: 18,
+    backgroundColor: '#F7FBF8',
+    borderWidth: 1,
+    borderColor: '#E5F0EA',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   topCategoryIconWrap: {
     width: 40,
@@ -1445,10 +1520,16 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
   },
+  topCategoryPointsBadge: {
+    borderRadius: Radii.pill,
+    backgroundColor: '#EAF7F1',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   topCategoryPoints: {
     color: Colors.brand.primaryDark,
-    fontSize: FontSizes.body,
-    lineHeight: LineHeights.body,
+    fontSize: FontSizes.sm,
+    lineHeight: LineHeights.sm,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
@@ -1458,48 +1539,89 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
+    marginBottom: Spacing.xs,
+  },
+  settingsSectionBody: {
+    color: '#667387',
+    fontSize: FontSizes.sm,
+    lineHeight: 21,
+    fontFamily: Fonts.sans,
     marginBottom: Spacing.md,
   },
   settingsMenuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 28,
+    minHeight: 76,
+    borderRadius: 18,
+    backgroundColor: '#F7FBF8',
+    borderWidth: 1,
+    borderColor: '#E6F0EA',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
   },
   settingsMenuLeading: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: Spacing.md,
     flex: 1,
   },
+  settingsMenuIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#E8F7F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsMenuCopy: {
+    flex: 1,
+    gap: 2,
+  },
   actionRowPressed: {
-    opacity: 0.92,
+    opacity: 0.9,
   },
   settingsMenuLabel: {
     color: Colors.brand.text,
     fontSize: FontSizes.body,
     lineHeight: 22,
     fontFamily: Fonts.sans,
-    fontWeight: FontWeights.regular,
+    fontWeight: FontWeights.medium,
+  },
+  settingsMenuHint: {
+    color: '#7A8795',
+    fontSize: FontSizes.caption,
+    lineHeight: 18,
+    fontFamily: Fonts.sans,
+  },
+  settingsMenuArrowWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: Radii.pill,
+    backgroundColor: '#EEF5F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  settingsMenuSpacer: {
+    height: Spacing.sm,
   },
   settingsDivider: {
     height: 1,
     backgroundColor: '#EEF2F5',
-    marginVertical: Spacing.md,
+    marginVertical: Spacing.sm,
   },
   signOutCard: {
-    minHeight: 54,
+    minHeight: 72,
     borderRadius: 18,
-    backgroundColor: Colors.brand.surface,
+    backgroundColor: '#FFF7F7',
+    borderWidth: 1,
+    borderColor: '#F2D8DC',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: Spacing.sm,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   signOutButtonPressed: {
     opacity: 0.94,
@@ -1507,12 +1629,30 @@ const styles = StyleSheet.create({
   signOutButtonDisabled: {
     opacity: 0.8,
   },
+  signOutIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#FFE9EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutCopy: {
+    flex: 1,
+    gap: 2,
+  },
   signOutButtonText: {
     color: '#F04438',
     fontSize: FontSizes.body,
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
+  },
+  signOutHint: {
+    color: '#A35C65',
+    fontSize: FontSizes.caption,
+    lineHeight: 18,
+    fontFamily: Fonts.sans,
   },
   sheetModalRoot: {
     flex: 1,
