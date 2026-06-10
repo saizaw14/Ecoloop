@@ -89,6 +89,7 @@ export async function recordWasteScan({
         categoryScanCounts: {
           [categorySlug]: increment(1),
         },
+        lastWasteScanAt: serverTimestamp(),
         totalCO2Saved: increment(normalizedCO2SavedKg),
         totalEcoPoints: increment(normalizedEcoPoints),
         totalScans: increment(1),

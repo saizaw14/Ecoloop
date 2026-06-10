@@ -149,6 +149,7 @@ function getGuaranteedStreakDays(lastSyncedAt: Date | null, hasActivity: boolean
 export default function ImpactDetailsScreen() {
   const router = useRouter();
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [lastWasteScanAt, setLastWasteScanAt] = useState<Date | null>(null);
   const { categoryScanCounts, totalCO2Saved, totalEcoPoints, totalScans } = useUserWasteStats();
 
   useEffect(() => {
@@ -165,6 +166,7 @@ export default function ImpactDetailsScreen() {
 
       if (!user) {
         setLastSyncedAt(null);
+        setLastWasteScanAt(null);
         return;
       }
 
@@ -177,14 +179,19 @@ export default function ImpactDetailsScreen() {
 
           if (!snapshot.exists()) {
             setLastSyncedAt(null);
+            setLastWasteScanAt(null);
             return;
           }
 
-          setLastSyncedAt(normalizeFirestoreDate(snapshot.data().updatedAt));
+          const userData = snapshot.data();
+
+          setLastSyncedAt(normalizeFirestoreDate(userData.updatedAt));
+          setLastWasteScanAt(normalizeFirestoreDate(userData.lastWasteScanAt));
         },
         () => {
           if (isMounted) {
             setLastSyncedAt(null);
+            setLastWasteScanAt(null);
           }
         }
       );
@@ -198,9 +205,10 @@ export default function ImpactDetailsScreen() {
   }, []);
 
   const hasActivity = totalScans > 0;
+  const hasTrackedWasteScan = Boolean(lastWasteScanAt);
   const currentPeriodDate = lastSyncedAt ?? new Date();
   const currentPeriodLabel = formatShortMonthYear(currentPeriodDate);
-  const currentStreakDays = getGuaranteedStreakDays(lastSyncedAt, hasActivity);
+  const currentStreakDays = getGuaranteedStreakDays(lastWasteScanAt, hasActivity);
   const treeEquivalent =
     totalCO2Saved > 0 ? Math.max(1, Math.round(totalCO2Saved / CO2_KG_PER_TREE)) : 0;
   const activeCategories = getWasteCategories(categoryScanCounts).filter(
@@ -294,15 +302,19 @@ export default function ImpactDetailsScreen() {
 
               <View style={styles.streakMessageBox}>
                 <Text style={styles.streakMessageText}>
-                  {hasActivity
+                  {currentStreakDays > 0
                     ? 'Keep it up! You are making a difference every day.'
+                    : hasActivity
+                      ? 'Scan 1 waste item to start or continue your recycling streak.'
                     : 'Scan your first item to start your recycling streak.'}
                 </Text>
               </View>
 
               <Text style={styles.helperCaption}>
-                {hasActivity && lastSyncedAt
-                  ? 'Streak currently reflects the latest guaranteed synced day.'
+                {hasTrackedWasteScan
+                  ? 'Streak currently reflects the latest guaranteed waste scan day.'
+                  : hasActivity
+                    ? 'Your previous totals are saved, and the streak will update after your next waste scan.'
                   : 'Daily streaks become more detailed as more scan history is tracked.'}
               </Text>
             </View>

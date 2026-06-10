@@ -2,17 +2,23 @@ import { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, updateProfile as updateAuthProfile } from 'firebase/auth';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticPressable } from '@/components/ui/haptic-pressable';
 import {
@@ -32,7 +38,6 @@ import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 import { calculateWasteEcoPoints } from '@/features/scan/services/waste-sorting-rewards';
 import { auth, db } from '@/firebase/firebaseConfig';
 import { logoutUser } from '@/services/authService';
-import { subscribeToSavedTipIds } from '@/services/tipsService';
 
 const POINTS_PER_LEVEL = 50;
 const CO2_KG_PER_TREE = 0.8;
@@ -47,11 +52,18 @@ const categoryIconSoftBackgroundColors: Record<WasteCategorySlug, string> = {
 };
 
 type ProfileTab = 'overview' | 'settings';
+type SettingsSheetKey = 'edit-profile' | 'change-email' | 'privacy';
 
 type ProfileIdentity = {
   displayName: string;
   email: string;
   userId: string | null;
+};
+
+type PrivacyPreferences = {
+  activityReminders: boolean;
+  profileVisibleToFriends: boolean;
+  usageInsights: boolean;
 };
 
 const defaultProfileIdentity: ProfileIdentity = {
@@ -83,22 +95,34 @@ function formatWeightReadable(value: number) {
   return `${Math.max(0, value).toFixed(2)} kg`;
 }
 
+function isLikelyEmailAddress(value: string) {
+  return /\S+@\S+\.\S+/.test(value.trim());
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [selectedTab, setSelectedTab] = useState<ProfileTab>('overview');
   const [profile, setProfile] = useState<ProfileIdentity>(defaultProfileIdentity);
-  const [savedTipCount, setSavedTipCount] = useState(0);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [activeSettingsSheet, setActiveSettingsSheet] = useState<SettingsSheetKey | null>(null);
+  const [displayNameDraft, setDisplayNameDraft] = useState(defaultProfileIdentity.displayName);
+  const [newEmailDraft, setNewEmailDraft] = useState('');
+  const [confirmEmailDraft, setConfirmEmailDraft] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isPreparingEmailChange, setIsPreparingEmailChange] = useState(false);
+  const [privacyPreferences, setPrivacyPreferences] = useState<PrivacyPreferences>({
+    activityReminders: true,
+    profileVisibleToFriends: false,
+    usageInsights: true,
+  });
   const { categoryScanCounts, totalCO2Saved, totalEcoPoints, totalScans } = useUserWasteStats();
 
   useEffect(() => {
     let isActive = true;
     let activeUserId: string | null = null;
-    let unsubscribeTips: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      unsubscribeTips?.();
-      unsubscribeTips = null;
       activeUserId = user?.uid ?? null;
 
       if (!isActive) {
@@ -107,7 +131,6 @@ export default function ProfileScreen() {
 
       if (!user) {
         setProfile(defaultProfileIdentity);
-        setSavedTipCount(0);
         return;
       }
 
@@ -118,14 +141,6 @@ export default function ProfileScreen() {
         displayName: fallbackName,
         email: fallbackEmail,
         userId: user.uid,
-      });
-
-      unsubscribeTips = subscribeToSavedTipIds(user.uid, (savedTipIds) => {
-        if (!isActive || activeUserId !== user.uid) {
-          return;
-        }
-
-        setSavedTipCount(savedTipIds.length);
       });
 
       try {
@@ -159,10 +174,13 @@ export default function ProfileScreen() {
 
     return () => {
       isActive = false;
-      unsubscribeTips?.();
       unsubscribeAuth();
     };
   }, []);
+
+  useEffect(() => {
+    setDisplayNameDraft(profile.displayName);
+  }, [profile.displayName]);
 
   const currentLevel = Math.floor(totalEcoPoints / POINTS_PER_LEVEL) + 1;
   const nextLevel = currentLevel + 1;
@@ -229,12 +247,128 @@ export default function ProfileScreen() {
     ]);
   }
 
+  function handleOpenSettingsSheet(sheet: SettingsSheetKey) {
+    if (!isSignedIn) {
+      Alert.alert('Sign in required', 'Please sign in to manage your account settings.');
+      return;
+    }
+
+    if (sheet === 'edit-profile') {
+      setDisplayNameDraft(profile.displayName);
+    }
+
+    if (sheet === 'change-email') {
+      setNewEmailDraft('');
+      setConfirmEmailDraft('');
+    }
+
+    setActiveSettingsSheet(sheet);
+  }
+
+  function closeSettingsSheet() {
+    if (isSavingProfile || isPreparingEmailChange) {
+      return;
+    }
+
+    setActiveSettingsSheet(null);
+  }
+
+  async function handleSaveProfileChanges() {
+    const currentUser = auth.currentUser;
+    const trimmedName = displayNameDraft.trim();
+
+    if (!currentUser) {
+      Alert.alert('Sign in required', 'Please sign in to edit your profile.');
+      return;
+    }
+
+    if (!trimmedName) {
+      Alert.alert('Display name required', 'Please enter a display name.');
+      return;
+    }
+
+    setIsSavingProfile(true);
+
+    try {
+      await updateAuthProfile(currentUser, {
+        displayName: trimmedName,
+      });
+
+      await setDoc(
+        doc(db, 'users', currentUser.uid),
+        {
+          email: currentUser.email?.trim() || profile.email,
+          name: trimmedName,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      setProfile((currentProfile) => ({
+        ...currentProfile,
+        displayName: trimmedName,
+      }));
+      setActiveSettingsSheet(null);
+      Alert.alert('Profile updated', 'Your display name has been saved.');
+    } catch {
+      Alert.alert('Unable to update profile', 'Please try again in a moment.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  async function handlePrepareEmailChange() {
+    const trimmedNewEmail = newEmailDraft.trim();
+    const trimmedConfirmEmail = confirmEmailDraft.trim();
+
+    if (!trimmedNewEmail || !trimmedConfirmEmail) {
+      Alert.alert('Email required', 'Please enter and confirm your new email address.');
+      return;
+    }
+
+    if (!isLikelyEmailAddress(trimmedNewEmail)) {
+      Alert.alert('Invalid email', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (trimmedNewEmail !== trimmedConfirmEmail) {
+      Alert.alert('Emails do not match', 'Please make sure both email fields match.');
+      return;
+    }
+
+    if (trimmedNewEmail.toLowerCase() === profile.email.trim().toLowerCase()) {
+      Alert.alert('Same email address', 'Please enter a different email address.');
+      return;
+    }
+
+    setIsPreparingEmailChange(true);
+
+    try {
+      Alert.alert(
+        'Secure Email Change',
+        'This design is ready, but the full email-change flow still needs re-authentication before it can safely update your account.'
+      );
+    } finally {
+      setIsPreparingEmailChange(false);
+    }
+  }
+
+  function togglePrivacyPreference(key: keyof PrivacyPreferences) {
+    setPrivacyPreferences((currentPreferences) => ({
+      ...currentPreferences,
+      [key]: !currentPreferences[key],
+    }));
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.screen}>
         <ScrollView
+          alwaysBounceVertical={false}
+          bounces={false}
           contentContainerStyle={styles.scrollContent}
+          overScrollMode="never"
           showsVerticalScrollIndicator={false}>
           <View style={styles.heroSection}>
             <View pointerEvents="none" style={styles.heroGlowOne} />
@@ -486,52 +620,21 @@ export default function ProfileScreen() {
                 <View style={styles.card}>
                   <Text style={styles.settingsSectionTitle}>Account</Text>
 
-                  <View style={styles.settingsRow}>
-                    <View style={[styles.settingsIconWrap, { backgroundColor: '#D9F8EC' }]}>
-                      <MaterialCommunityIcons
-                        color={Colors.brand.primaryDark}
-                        name="account-outline"
-                        size={18}
-                      />
-                    </View>
-                    <View style={styles.settingsCopy}>
-                      <Text style={styles.settingsLabel}>Display Name</Text>
-                      <Text style={styles.settingsValue}>{profile.displayName}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.settingsDivider} />
-
-                  <View style={styles.settingsRow}>
-                    <View style={[styles.settingsIconWrap, { backgroundColor: '#ECF3FF' }]}>
-                      <MaterialCommunityIcons color="#4A7DFF" name="email-outline" size={18} />
-                    </View>
-                    <View style={styles.settingsCopy}>
-                      <Text style={styles.settingsLabel}>Email</Text>
-                      <Text style={styles.settingsValue}>{profile.email}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={styles.card}>
-                  <Text style={styles.settingsSectionTitle}>Quick Access</Text>
-
                   <HapticPressable
                     accessibilityRole="button"
                     hapticType="selection"
-                    onPress={() => router.push('/tips')}
+                    onPress={() => handleOpenSettingsSheet('edit-profile')}
                     style={({ pressed }) => [
-                      styles.actionRow,
+                      styles.settingsMenuRow,
                       pressed ? styles.actionRowPressed : null,
                     ]}>
-                    <View style={[styles.settingsIconWrap, { backgroundColor: '#FFF2D8' }]}>
-                      <MaterialCommunityIcons color="#F59E0B" name="bookmark-outline" size={18} />
-                    </View>
-                    <View style={styles.settingsCopy}>
-                      <Text style={styles.settingsLabel}>Saved Tips</Text>
-                      <Text style={styles.settingsValue}>{`${savedTipCount} tip${
-                        savedTipCount === 1 ? '' : 's'
-                      } saved`}</Text>
+                    <View style={styles.settingsMenuLeading}>
+                      <MaterialCommunityIcons
+                        color={Colors.brand.body}
+                        name="account-outline"
+                        size={18}
+                      />
+                      <Text style={styles.settingsMenuLabel}>Edit Profile</Text>
                     </View>
                     <MaterialCommunityIcons color="#B0B8C4" name="chevron-right" size={18} />
                   </HapticPressable>
@@ -541,21 +644,31 @@ export default function ProfileScreen() {
                   <HapticPressable
                     accessibilityRole="button"
                     hapticType="selection"
-                    onPress={() => router.push('/categories')}
+                    onPress={() => handleOpenSettingsSheet('change-email')}
                     style={({ pressed }) => [
-                      styles.actionRow,
+                      styles.settingsMenuRow,
                       pressed ? styles.actionRowPressed : null,
                     ]}>
-                    <View style={[styles.settingsIconWrap, { backgroundColor: '#E7F7F0' }]}>
-                      <MaterialCommunityIcons
-                        color={Colors.brand.primaryDark}
-                        name="recycle"
-                        size={18}
-                      />
+                    <View style={styles.settingsMenuLeading}>
+                      <MaterialCommunityIcons color={Colors.brand.body} name="email-outline" size={18} />
+                      <Text style={styles.settingsMenuLabel}>Change Email</Text>
                     </View>
-                    <View style={styles.settingsCopy}>
-                      <Text style={styles.settingsLabel}>Recycling Guide</Text>
-                      <Text style={styles.settingsValue}>Browse waste categories</Text>
+                    <MaterialCommunityIcons color="#B0B8C4" name="chevron-right" size={18} />
+                  </HapticPressable>
+
+                  <View style={styles.settingsDivider} />
+
+                  <HapticPressable
+                    accessibilityRole="button"
+                    hapticType="selection"
+                    onPress={() => handleOpenSettingsSheet('privacy')}
+                    style={({ pressed }) => [
+                      styles.settingsMenuRow,
+                      pressed ? styles.actionRowPressed : null,
+                    ]}>
+                    <View style={styles.settingsMenuLeading}>
+                      <MaterialCommunityIcons color={Colors.brand.body} name="shield-outline" size={18} />
+                      <Text style={styles.settingsMenuLabel}>Privacy & Security</Text>
                     </View>
                     <MaterialCommunityIcons color="#B0B8C4" name="chevron-right" size={18} />
                   </HapticPressable>
@@ -567,27 +680,316 @@ export default function ProfileScreen() {
                   hapticType="medium"
                   onPress={handleSignOutPress}
                   style={({ pressed }) => [
-                    styles.signOutButton,
+                    styles.signOutCard,
                     pressed ? styles.signOutButtonPressed : null,
                     isSigningOut ? styles.signOutButtonDisabled : null,
                   ]}>
                   {isSigningOut ? (
-                    <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+                    <ActivityIndicator color="#F04438" size="small" />
                   ) : (
                     <MaterialCommunityIcons
-                      color={Colors.brand.onPrimary}
-                      name={isSignedIn ? 'logout' : 'login'}
+                      color="#F04438"
+                      name="logout"
                       size={18}
                     />
                   )}
                   <Text style={styles.signOutButtonText}>
-                    {isSignedIn ? 'Sign Out' : 'Go to Login'}
+                    {isSignedIn ? 'Log Out' : 'Go to Login'}
                   </Text>
                 </HapticPressable>
               </>
             )}
           </View>
         </ScrollView>
+
+        <Modal
+          animationType="fade"
+          onRequestClose={closeSettingsSheet}
+          transparent
+          visible={activeSettingsSheet !== null}>
+          <View style={styles.sheetModalRoot}>
+            <Pressable onPress={closeSettingsSheet} style={styles.sheetBackdrop} />
+
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.sheetHost}>
+              <View
+                style={[
+                  styles.sheetCard,
+                  { paddingBottom: Math.max(insets.bottom, Spacing.lg) + Spacing.sm },
+                ]}>
+                <View style={styles.sheetHandle} />
+
+                <View style={styles.sheetHeader}>
+                  <View style={styles.sheetHeaderCopy}>
+                    <View style={styles.sheetTitleRow}>
+                      <View style={styles.sheetTitleIconWrap}>
+                        <MaterialCommunityIcons
+                          color={Colors.brand.primaryDark}
+                          name={
+                            activeSettingsSheet === 'edit-profile'
+                              ? 'account-edit-outline'
+                              : activeSettingsSheet === 'change-email'
+                                ? 'email-edit-outline'
+                                : 'shield-outline'
+                          }
+                          size={20}
+                        />
+                      </View>
+
+                      <View style={styles.sheetTitleCopy}>
+                        <Text style={styles.sheetTitle}>
+                          {activeSettingsSheet === 'edit-profile'
+                            ? 'Edit Profile'
+                            : activeSettingsSheet === 'change-email'
+                              ? 'Change Email'
+                              : 'Privacy & Security'}
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                          {activeSettingsSheet === 'edit-profile'
+                            ? 'Keep your account details up to date.'
+                            : activeSettingsSheet === 'change-email'
+                              ? 'Prepare a secure email update flow.'
+                              : 'Control how your account feels and behaves.'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <HapticPressable
+                    accessibilityRole="button"
+                    hapticType="selection"
+                    onPress={closeSettingsSheet}
+                    style={styles.sheetCloseButton}>
+                    <MaterialCommunityIcons color={Colors.brand.body} name="close" size={18} />
+                  </HapticPressable>
+                </View>
+
+                <ScrollView
+                  contentContainerStyle={styles.sheetScrollContent}
+                  showsVerticalScrollIndicator={false}>
+                  {activeSettingsSheet === 'edit-profile' ? (
+                    <>
+                      <View style={styles.sheetProfileHero}>
+                        <View style={styles.sheetAvatarCircle}>
+                          <MaterialCommunityIcons
+                            color={Colors.brand.primaryDark}
+                            name="account-outline"
+                            size={26}
+                          />
+                        </View>
+
+                        <View style={styles.sheetProfileCopy}>
+                          <Text style={styles.sheetProfileName}>{profile.displayName}</Text>
+                          <Text style={styles.sheetProfileEmail}>{profile.email}</Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.sheetInputGroup}>
+                        <Text style={styles.sheetInputLabel}>Display Name</Text>
+                        <View style={styles.sheetInputWrap}>
+                          <MaterialCommunityIcons
+                            color="#94A3B8"
+                            name="account-outline"
+                            size={18}
+                          />
+                          <TextInput
+                            onChangeText={setDisplayNameDraft}
+                            placeholder="Enter your display name"
+                            placeholderTextColor="#94A3B8"
+                            style={styles.sheetTextInput}
+                            value={displayNameDraft}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.sheetInfoCard}>
+                        <Text style={styles.sheetInfoLabel}>Current Email</Text>
+                        <Text style={styles.sheetInfoValue}>{profile.email}</Text>
+                        <Text style={styles.sheetInfoBody}>
+                          Your email stays unchanged here. Use the email sheet when you are ready.
+                        </Text>
+                      </View>
+
+                      <HapticPressable
+                        accessibilityRole="button"
+                        disabled={isSavingProfile}
+                        hapticType="medium"
+                        onPress={handleSaveProfileChanges}
+                        style={({ pressed }) => [
+                          styles.sheetPrimaryButton,
+                          pressed && !isSavingProfile ? styles.sheetPrimaryButtonPressed : null,
+                          isSavingProfile ? styles.sheetPrimaryButtonDisabled : null,
+                        ]}>
+                        {isSavingProfile ? (
+                          <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+                        ) : null}
+                        <Text style={styles.sheetPrimaryButtonText}>
+                          {isSavingProfile ? 'Saving...' : 'Save Changes'}
+                        </Text>
+                      </HapticPressable>
+                    </>
+                  ) : null}
+
+                  {activeSettingsSheet === 'change-email' ? (
+                    <>
+                      <View style={styles.sheetInfoCard}>
+                        <Text style={styles.sheetInfoLabel}>Current Email</Text>
+                        <Text style={styles.sheetInfoValue}>{profile.email}</Text>
+                        <Text style={styles.sheetInfoBody}>
+                          Changing your email will require a secure verification step.
+                        </Text>
+                      </View>
+
+                      <View style={styles.sheetInputGroup}>
+                        <Text style={styles.sheetInputLabel}>New Email</Text>
+                        <View style={styles.sheetInputWrap}>
+                          <MaterialCommunityIcons
+                            color="#94A3B8"
+                            name="email-outline"
+                            size={18}
+                          />
+                          <TextInput
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                            onChangeText={setNewEmailDraft}
+                            placeholder="new.email@example.com"
+                            placeholderTextColor="#94A3B8"
+                            style={styles.sheetTextInput}
+                            value={newEmailDraft}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.sheetInputGroup}>
+                        <Text style={styles.sheetInputLabel}>Confirm New Email</Text>
+                        <View style={styles.sheetInputWrap}>
+                          <MaterialCommunityIcons
+                            color="#94A3B8"
+                            name="check-decagram-outline"
+                            size={18}
+                          />
+                          <TextInput
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                            onChangeText={setConfirmEmailDraft}
+                            placeholder="Repeat your new email"
+                            placeholderTextColor="#94A3B8"
+                            style={styles.sheetTextInput}
+                            value={confirmEmailDraft}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.sheetNoticeCard}>
+                        <MaterialCommunityIcons
+                          color="#C67A00"
+                          name="shield-check-outline"
+                          size={18}
+                        />
+                        <Text style={styles.sheetNoticeText}>
+                          For security, this flow should ask for a recent sign-in before applying a real email change.
+                        </Text>
+                      </View>
+
+                      <HapticPressable
+                        accessibilityRole="button"
+                        disabled={isPreparingEmailChange}
+                        hapticType="medium"
+                        onPress={handlePrepareEmailChange}
+                        style={({ pressed }) => [
+                          styles.sheetPrimaryButton,
+                          pressed && !isPreparingEmailChange ? styles.sheetPrimaryButtonPressed : null,
+                          isPreparingEmailChange ? styles.sheetPrimaryButtonDisabled : null,
+                        ]}>
+                        {isPreparingEmailChange ? (
+                          <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+                        ) : null}
+                        <Text style={styles.sheetPrimaryButtonText}>
+                          {isPreparingEmailChange ? 'Preparing...' : 'Review Email Change'}
+                        </Text>
+                      </HapticPressable>
+                    </>
+                  ) : null}
+
+                  {activeSettingsSheet === 'privacy' ? (
+                    <>
+                      <View style={styles.privacySection}>
+                        <View style={styles.privacyRow}>
+                          <View style={styles.privacyCopy}>
+                            <Text style={styles.privacyLabel}>Activity Reminders</Text>
+                            <Text style={styles.privacyBody}>
+                              Gentle nudges to keep your recycling streak going.
+                            </Text>
+                          </View>
+                          <Switch
+                            onValueChange={() => togglePrivacyPreference('activityReminders')}
+                            thumbColor="#FFFFFF"
+                            trackColor={{ false: '#D7DEE6', true: '#13B27D' }}
+                            value={privacyPreferences.activityReminders}
+                          />
+                        </View>
+
+                        <View style={styles.settingsDivider} />
+
+                        <View style={styles.privacyRow}>
+                          <View style={styles.privacyCopy}>
+                            <Text style={styles.privacyLabel}>Visible to Friends</Text>
+                            <Text style={styles.privacyBody}>
+                              Share your profile activity more openly in future social features.
+                            </Text>
+                          </View>
+                          <Switch
+                            onValueChange={() => togglePrivacyPreference('profileVisibleToFriends')}
+                            thumbColor="#FFFFFF"
+                            trackColor={{ false: '#D7DEE6', true: '#13B27D' }}
+                            value={privacyPreferences.profileVisibleToFriends}
+                          />
+                        </View>
+
+                        <View style={styles.settingsDivider} />
+
+                        <View style={styles.privacyRow}>
+                          <View style={styles.privacyCopy}>
+                            <Text style={styles.privacyLabel}>Usage Insights</Text>
+                            <Text style={styles.privacyBody}>
+                              Help improve EcoLoop with anonymous experience insights.
+                            </Text>
+                          </View>
+                          <Switch
+                            onValueChange={() => togglePrivacyPreference('usageInsights')}
+                            thumbColor="#FFFFFF"
+                            trackColor={{ false: '#D7DEE6', true: '#13B27D' }}
+                            value={privacyPreferences.usageInsights}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.sheetInfoCard}>
+                        <Text style={styles.sheetInfoLabel}>Account Security</Text>
+                        <Text style={styles.sheetInfoValue}>Protected by Firebase Authentication</Text>
+                        <Text style={styles.sheetInfoBody}>
+                          Your sign-in session and account credentials are handled through the app authentication layer.
+                        </Text>
+                      </View>
+
+                      <HapticPressable
+                        accessibilityRole="button"
+                        hapticType="medium"
+                        onPress={closeSettingsSheet}
+                        style={({ pressed }) => [
+                          styles.sheetPrimaryButton,
+                          pressed ? styles.sheetPrimaryButtonPressed : null,
+                        ]}>
+                        <Text style={styles.sheetPrimaryButtonText}>Done</Text>
+                      </HapticPressable>
+                    </>
+                  ) : null}
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
       </View>
     </SafeAreaView>
   );
@@ -1056,61 +1458,46 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
-  settingsRow: {
+  settingsMenuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 28,
+  },
+  settingsMenuLeading: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
+    flex: 1,
   },
   actionRowPressed: {
     opacity: 0.92,
   },
-  settingsIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  settingsCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  settingsLabel: {
-    color: '#64748B',
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
-    fontFamily: Fonts.sans,
-  },
-  settingsValue: {
+  settingsMenuLabel: {
     color: Colors.brand.text,
     fontSize: FontSizes.body,
     lineHeight: 22,
     fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
+    fontWeight: FontWeights.regular,
   },
   settingsDivider: {
     height: 1,
     backgroundColor: '#EEF2F5',
-    marginVertical: Spacing.lg,
+    marginVertical: Spacing.md,
   },
-  signOutButton: {
+  signOutCard: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: Colors.brand.primaryDark,
+    backgroundColor: Colors.brand.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.sm,
-    shadowColor: Colors.brand.primaryDark,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 4,
   },
@@ -1121,10 +1508,254 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   signOutButtonText: {
+    color: '#F04438',
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.semibold,
+  },
+  sheetModalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.26)',
+  },
+  sheetHost: {
+    justifyContent: 'flex-end',
+  },
+  sheetCard: {
+    maxHeight: '86%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: Colors.brand.surface,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.md,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 46,
+    height: 5,
+    borderRadius: Radii.pill,
+    backgroundColor: '#D7DEE6',
+    marginBottom: Spacing.md,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  sheetHeaderCopy: {
+    flex: 1,
+  },
+  sheetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+  },
+  sheetTitleIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: '#DFF7EC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTitleCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  sheetTitle: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.subtitle,
+    lineHeight: LineHeights.subtitle,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  sheetSubtitle: {
+    color: '#667387',
+    fontSize: FontSizes.sm,
+    lineHeight: 21,
+    fontFamily: Fonts.sans,
+  },
+  sheetCloseButton: {
+    width: 34,
+    height: 34,
+    borderRadius: Radii.pill,
+    backgroundColor: '#F4F7FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetScrollContent: {
+    gap: Spacing.lg,
+    paddingBottom: Spacing.md,
+  },
+  sheetProfileHero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderRadius: 20,
+    backgroundColor: '#F5FBF8',
+    padding: Spacing.md,
+  },
+  sheetAvatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: Radii.pill,
+    backgroundColor: '#E2F8EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetProfileCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  sheetProfileName: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  sheetProfileEmail: {
+    color: '#667387',
+    fontSize: FontSizes.sm,
+    lineHeight: LineHeights.sm,
+    fontFamily: Fonts.sans,
+  },
+  sheetInputGroup: {
+    gap: Spacing.sm,
+  },
+  sheetInputLabel: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.sm,
+    lineHeight: LineHeights.sm,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  sheetInputWrap: {
+    minHeight: 54,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D7DEE6',
+    backgroundColor: '#FAFCFD',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  sheetTextInput: {
+    flex: 1,
+    color: Colors.brand.text,
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    paddingVertical: 0,
+  },
+  sheetInfoCard: {
+    borderRadius: 20,
+    backgroundColor: '#F7FAFC',
+    padding: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  sheetInfoLabel: {
+    color: '#7B8798',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+  },
+  sheetInfoValue: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.body,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  sheetInfoBody: {
+    color: '#667387',
+    fontSize: FontSizes.sm,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+  },
+  sheetNoticeCard: {
+    borderRadius: 18,
+    backgroundColor: '#FFF8E8',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+  },
+  sheetNoticeText: {
+    flex: 1,
+    color: '#B25A00',
+    fontSize: FontSizes.sm,
+    lineHeight: 21,
+    fontFamily: Fonts.sans,
+  },
+  sheetPrimaryButton: {
+    minHeight: 54,
+    borderRadius: 18,
+    backgroundColor: Colors.brand.primaryDark,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    shadowColor: Colors.brand.primaryDark,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  sheetPrimaryButtonPressed: {
+    opacity: 0.94,
+  },
+  sheetPrimaryButtonDisabled: {
+    opacity: 0.8,
+  },
+  sheetPrimaryButtonText: {
     color: Colors.brand.onPrimary,
     fontSize: FontSizes.body,
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
+  },
+  privacySection: {
+    borderRadius: 20,
+    backgroundColor: Colors.brand.surface,
+    borderWidth: 1,
+    borderColor: '#EEF2F5',
+    padding: Spacing.lg,
+  },
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  privacyCopy: {
+    flex: 1,
+    gap: 2,
+    paddingRight: Spacing.md,
+  },
+  privacyLabel: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.body,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  privacyBody: {
+    color: '#667387',
+    fontSize: FontSizes.sm,
+    lineHeight: 21,
+    fontFamily: Fonts.sans,
   },
 });
