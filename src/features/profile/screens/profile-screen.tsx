@@ -52,7 +52,7 @@ const categoryIconSoftBackgroundColors: Record<WasteCategorySlug, string> = {
 };
 
 type ProfileTab = 'overview' | 'settings';
-type SettingsSheetKey = 'edit-profile' | 'change-email' | 'privacy';
+type SettingsSheetKey = 'manage-account' | 'privacy';
 
 type ProfileIdentity = {
   displayName: string;
@@ -207,6 +207,7 @@ export default function ProfileScreen() {
         rightCategory.sortedCount - leftCategory.sortedCount
     )
     .slice(0, 3);
+  const isSavingAccountChanges = isSavingProfile || isPreparingEmailChange;
 
   async function handleConfirmSignOut() {
     if (!isSignedIn) {
@@ -253,11 +254,8 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (sheet === 'edit-profile') {
+    if (sheet === 'manage-account') {
       setDisplayNameDraft(profile.displayName);
-    }
-
-    if (sheet === 'change-email') {
       setNewEmailDraft('');
       setConfirmEmailDraft('');
     }
@@ -266,30 +264,23 @@ export default function ProfileScreen() {
   }
 
   function closeSettingsSheet() {
-    if (isSavingProfile || isPreparingEmailChange) {
+    if (isSavingAccountChanges) {
       return;
     }
 
     setActiveSettingsSheet(null);
   }
 
-  async function handleSaveProfileChanges() {
+  async function saveDisplayName(trimmedName: string) {
     const currentUser = auth.currentUser;
-    const trimmedName = displayNameDraft.trim();
-
-    if (!currentUser) {
-      Alert.alert('Sign in required', 'Please sign in to edit your profile.');
-      return;
-    }
-
-    if (!trimmedName) {
-      Alert.alert('Display name required', 'Please enter a display name.');
-      return;
-    }
-
     setIsSavingProfile(true);
 
     try {
+      if (!currentUser) {
+        Alert.alert('Sign in required', 'Please sign in to edit your profile.');
+        return false;
+      }
+
       await updateAuthProfile(currentUser, {
         displayName: trimmedName,
       });
@@ -308,49 +299,96 @@ export default function ProfileScreen() {
         ...currentProfile,
         displayName: trimmedName,
       }));
-      setActiveSettingsSheet(null);
-      Alert.alert('Profile updated', 'Your display name has been saved.');
+      return true;
     } catch {
       Alert.alert('Unable to update profile', 'Please try again in a moment.');
+      return false;
     } finally {
       setIsSavingProfile(false);
     }
   }
 
-  async function handlePrepareEmailChange() {
+  function validateEmailChangeDrafts() {
     const trimmedNewEmail = newEmailDraft.trim();
     const trimmedConfirmEmail = confirmEmailDraft.trim();
 
+    if (!trimmedNewEmail && !trimmedConfirmEmail) {
+      return null;
+    }
+
     if (!trimmedNewEmail || !trimmedConfirmEmail) {
       Alert.alert('Email required', 'Please enter and confirm your new email address.');
-      return;
+      return false;
     }
 
     if (!isLikelyEmailAddress(trimmedNewEmail)) {
       Alert.alert('Invalid email', 'Please enter a valid email address.');
-      return;
+      return false;
     }
 
     if (trimmedNewEmail !== trimmedConfirmEmail) {
       Alert.alert('Emails do not match', 'Please make sure both email fields match.');
-      return;
+      return false;
     }
 
     if (trimmedNewEmail.toLowerCase() === profile.email.trim().toLowerCase()) {
       Alert.alert('Same email address', 'Please enter a different email address.');
+      return false;
+    }
+
+    return trimmedNewEmail;
+  }
+
+  async function handleSaveAccountChanges() {
+    const trimmedName = displayNameDraft.trim();
+
+    if (!trimmedName) {
+      Alert.alert('Username required', 'Please enter a username.');
       return;
     }
 
-    setIsPreparingEmailChange(true);
+    const nameChanged = trimmedName !== profile.displayName.trim();
+    const validatedEmailChange = validateEmailChangeDrafts();
 
-    try {
-      Alert.alert(
-        'Secure Email Change',
-        'This design is ready, but the full email-change flow still needs re-authentication before it can safely update your account.'
-      );
-    } finally {
-      setIsPreparingEmailChange(false);
+    if (validatedEmailChange === false) {
+      return;
     }
+
+    if (!nameChanged && !validatedEmailChange) {
+      setActiveSettingsSheet(null);
+      return;
+    }
+
+    let savedName = false;
+
+    if (nameChanged) {
+      savedName = await saveDisplayName(trimmedName);
+
+      if (!savedName) {
+        return;
+      }
+    }
+
+    if (validatedEmailChange) {
+      setIsPreparingEmailChange(true);
+
+      try {
+        Alert.alert(
+          'Changes saved',
+          savedName
+            ? 'Your username has been updated. A recent sign-in is still required before a new email can be applied.'
+            : 'A recent sign-in is still required before a new email can be applied.'
+        );
+      } finally {
+        setIsPreparingEmailChange(false);
+      }
+
+      setActiveSettingsSheet(null);
+      return;
+    }
+
+    Alert.alert('Changes saved', 'Your account details have been updated.');
+    setActiveSettingsSheet(null);
   }
 
   function togglePrivacyPreference(key: keyof PrivacyPreferences) {
@@ -376,18 +414,17 @@ export default function ProfileScreen() {
             <View style={styles.heroSection}>
               <View pointerEvents="none" style={styles.heroAccentLarge} />
               <View pointerEvents="none" style={styles.heroAccentSmall} />
+              <View pointerEvents="none" style={styles.heroAccentMedium} />
 
-              <View style={styles.profileHeaderRow}>
-                <View style={styles.avatarCircle}>
-                  <MaterialCommunityIcons
-                    color={Colors.brand.primaryDark}
-                    name="account-outline"
-                    size={34}
-                  />
-                </View>
-
+              <View style={styles.heroTopRow}>
                 <View style={styles.profileHeaderCopy}>
-                  <Text style={styles.profileEyebrow}>Profile</Text>
+                  <View style={styles.profileStatusBadge}>
+                    <View style={styles.profileStatusDot} />
+                    <Text style={styles.profileStatusText}>
+                      {isSignedIn ? 'EcoLoop Member' : 'Guest Profile'}
+                    </Text>
+                  </View>
+
                   <Text numberOfLines={1} style={styles.profileName}>
                     {profile.displayName}
                   </Text>
@@ -395,48 +432,37 @@ export default function ProfileScreen() {
                     {profile.email}
                   </Text>
                 </View>
+
+                <View style={styles.heroLevelCard}>
+                  <Text style={styles.heroLevelLabel}>Level</Text>
+                  <Text style={styles.heroLevelValue}>{currentLevel}</Text>
+                  <Text style={styles.heroLevelHint}>Eco tier</Text>
+                </View>
               </View>
 
-              <View style={styles.levelRow}>
-                <View style={styles.levelBadge}>
-                  <MaterialCommunityIcons
-                    color={Colors.brand.primaryDark}
-                    name="medal-outline"
-                    size={16}
-                  />
-                  <Text style={styles.levelBadgeText}>{`Level ${currentLevel} Eco Champion`}</Text>
+              <View style={styles.heroMiniStatsRow}>
+                <View style={styles.heroMiniStatCard}>
+                  <View style={[styles.heroMiniStatIconWrap, { backgroundColor: 'rgba(255, 244, 204, 0.18)' }]}>
+                    <MaterialCommunityIcons color="#FFD76A" name="star-four-points" size={18} />
+                  </View>
+                  <Text style={styles.heroMiniStatValue}>{formatWholeNumber(totalEcoPoints)}</Text>
+                  <Text style={styles.heroMiniStatLabel}>Points</Text>
                 </View>
 
-                <Text style={styles.levelSupportText}>
-                  {hasActivity
-                    ? `${pointsToNextLevel} points until Level ${nextLevel}`
-                    : 'Start scanning items to begin your progress.'}
-                </Text>
-              </View>
-
-              <View style={styles.statsRow}>
-                <View style={[styles.statCard, styles.statCardWarm]}>
-                  <View style={[styles.statIconWrap, { backgroundColor: '#FFF4CC' }]}>
-                    <MaterialCommunityIcons color="#D8A114" name="star-four-points" size={18} />
+                <View style={styles.heroMiniStatCard}>
+                  <View style={[styles.heroMiniStatIconWrap, { backgroundColor: 'rgba(186, 245, 220, 0.18)' }]}>
+                    <MaterialCommunityIcons color="#7CF7C1" name="recycle" size={18} />
                   </View>
-                  <Text style={styles.statValue}>{formatWholeNumber(totalEcoPoints)}</Text>
-                  <Text style={styles.statLabel}>Points</Text>
+                  <Text style={styles.heroMiniStatValue}>{formatWholeNumber(totalScans)}</Text>
+                  <Text style={styles.heroMiniStatLabel}>Items Sorted</Text>
                 </View>
 
-                <View style={[styles.statCard, styles.statCardMint]}>
-                  <View style={[styles.statIconWrap, { backgroundColor: '#DFF7EC' }]}>
-                    <MaterialCommunityIcons color="#19966B" name="recycle" size={18} />
+                <View style={styles.heroMiniStatCard}>
+                  <View style={[styles.heroMiniStatIconWrap, { backgroundColor: 'rgba(202, 232, 255, 0.18)' }]}>
+                    <MaterialCommunityIcons color="#8FD3FF" name="earth" size={18} />
                   </View>
-                  <Text style={styles.statValue}>{formatWholeNumber(totalScans)}</Text>
-                  <Text style={styles.statLabel}>Items</Text>
-                </View>
-
-                <View style={[styles.statCard, styles.statCardSky]}>
-                  <View style={[styles.statIconWrap, { backgroundColor: '#E3F1FF' }]}>
-                    <MaterialCommunityIcons color="#3B82F6" name="earth" size={18} />
-                  </View>
-                  <Text style={styles.statValue}>{formatWeightCompact(totalCO2Saved)}</Text>
-                  <Text style={styles.statLabel}>CO2 Saved</Text>
+                  <Text style={styles.heroMiniStatValue}>{formatWeightCompact(totalCO2Saved)}</Text>
+                  <Text style={styles.heroMiniStatLabel}>CO2 Saved</Text>
                 </View>
               </View>
             </View>
@@ -635,15 +661,15 @@ export default function ProfileScreen() {
             ) : (
               <>
                 <View style={styles.card}>
-                  <Text style={styles.settingsSectionTitle}>Manage Account</Text>
+                  <Text style={styles.settingsSectionTitle}>Account & Privacy</Text>
                   <Text style={styles.settingsSectionBody}>
-                    Update your profile details, email, and privacy preferences in one place.
+                    Update your username, email, and personal preferences in one place.
                   </Text>
 
                   <HapticPressable
                     accessibilityRole="button"
                     hapticType="selection"
-                    onPress={() => handleOpenSettingsSheet('edit-profile')}
+                    onPress={() => handleOpenSettingsSheet('manage-account')}
                     style={({ pressed }) => [
                       styles.settingsMenuRow,
                       pressed ? styles.actionRowPressed : null,
@@ -657,36 +683,8 @@ export default function ProfileScreen() {
                         />
                       </View>
                       <View style={styles.settingsMenuCopy}>
-                        <Text style={styles.settingsMenuLabel}>Edit Profile</Text>
-                        <Text style={styles.settingsMenuHint}>Change your name and profile details.</Text>
-                      </View>
-                    </View>
-                    <View style={styles.settingsMenuArrowWrap}>
-                      <MaterialCommunityIcons color={Colors.brand.primaryDark} name="chevron-right" size={18} />
-                    </View>
-                  </HapticPressable>
-
-                  <View style={styles.settingsMenuSpacer} />
-
-                  <HapticPressable
-                    accessibilityRole="button"
-                    hapticType="selection"
-                    onPress={() => handleOpenSettingsSheet('change-email')}
-                    style={({ pressed }) => [
-                      styles.settingsMenuRow,
-                      pressed ? styles.actionRowPressed : null,
-                    ]}>
-                    <View style={styles.settingsMenuLeading}>
-                      <View style={styles.settingsMenuIconWrap}>
-                        <MaterialCommunityIcons
-                          color={Colors.brand.primaryDark}
-                          name="email-outline"
-                          size={18}
-                        />
-                      </View>
-                      <View style={styles.settingsMenuCopy}>
-                        <Text style={styles.settingsMenuLabel}>Change Email</Text>
-                        <Text style={styles.settingsMenuHint}>Prepare a secure update for your account email.</Text>
+                        <Text style={styles.settingsMenuLabel}>Manage Account</Text>
+                        <Text style={styles.settingsMenuHint}>Edit your username and review email settings.</Text>
                       </View>
                     </View>
                     <View style={styles.settingsMenuArrowWrap}>
@@ -783,11 +781,9 @@ export default function ProfileScreen() {
                         <MaterialCommunityIcons
                           color={Colors.brand.primaryDark}
                           name={
-                            activeSettingsSheet === 'edit-profile'
-                              ? 'account-edit-outline'
-                              : activeSettingsSheet === 'change-email'
-                                ? 'email-edit-outline'
-                                : 'shield-outline'
+                            activeSettingsSheet === 'manage-account'
+                              ? 'account-cog-outline'
+                              : 'shield-outline'
                           }
                           size={20}
                         />
@@ -795,18 +791,14 @@ export default function ProfileScreen() {
 
                       <View style={styles.sheetTitleCopy}>
                         <Text style={styles.sheetTitle}>
-                          {activeSettingsSheet === 'edit-profile'
-                            ? 'Edit Profile'
-                            : activeSettingsSheet === 'change-email'
-                              ? 'Change Email'
-                              : 'Privacy & Security'}
+                          {activeSettingsSheet === 'manage-account'
+                            ? 'Manage Account'
+                            : 'Privacy & Security'}
                         </Text>
                         <Text style={styles.sheetSubtitle}>
-                          {activeSettingsSheet === 'edit-profile'
-                            ? 'Keep your account details up to date.'
-                            : activeSettingsSheet === 'change-email'
-                              ? 'Prepare a secure email update flow.'
-                              : 'Control how your account feels and behaves.'}
+                          {activeSettingsSheet === 'manage-account'
+                            ? 'Update your username and prepare a secure email change in one place.'
+                            : 'Control how your account feels and behaves.'}
                         </Text>
                       </View>
                     </View>
@@ -825,145 +817,109 @@ export default function ProfileScreen() {
                   contentContainerStyle={styles.sheetScrollContent}
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}>
-                  {activeSettingsSheet === 'edit-profile' ? (
+                  {activeSettingsSheet === 'manage-account' ? (
                     <>
-                      <View style={styles.sheetProfileHero}>
-                        <View style={styles.sheetAvatarCircle}>
-                          <MaterialCommunityIcons
-                            color={Colors.brand.primaryDark}
-                            name="account-outline"
-                            size={26}
-                          />
+                      <View style={styles.sheetSectionCard}>
+                        <View style={styles.sheetSectionHeader}>
+                          <Text style={styles.sheetSectionTitle}>Username</Text>
                         </View>
 
-                        <View style={styles.sheetProfileCopy}>
-                          <Text style={styles.sheetProfileName}>{profile.displayName}</Text>
-                          <Text style={styles.sheetProfileEmail}>{profile.email}</Text>
+                        <View style={styles.sheetInputGroup}>
+                          <Text style={styles.sheetInputLabel}>Change Username</Text>
+                          <View style={styles.sheetInputWrap}>
+                            <MaterialCommunityIcons
+                              color="#94A3B8"
+                              name="account-outline"
+                              size={18}
+                            />
+                            <TextInput
+                              onChangeText={setDisplayNameDraft}
+                              placeholder="Enter your username"
+                              placeholderTextColor="#94A3B8"
+                              style={styles.sheetTextInput}
+                              value={displayNameDraft}
+                            />
+                          </View>
                         </View>
                       </View>
 
-                      <View style={styles.sheetInputGroup}>
-                        <Text style={styles.sheetInputLabel}>Display Name</Text>
-                        <View style={styles.sheetInputWrap}>
+                      <View style={styles.sheetSectionCard}>
+                        <View style={styles.sheetSectionHeader}>
+                          <Text style={styles.sheetSectionTitle}>Email Address</Text>
+                        </View>
+
+                        <View style={styles.sheetInfoCard}>
+                          <Text style={styles.sheetInfoLabel}>Current Email</Text>
+                          <Text style={styles.sheetInfoValue}>{profile.email}</Text>
+                        </View>
+
+                        <View style={styles.sheetInputGroup}>
+                          <Text style={styles.sheetInputLabel}>New Email</Text>
+                          <View style={styles.sheetInputWrap}>
+                            <MaterialCommunityIcons
+                              color="#94A3B8"
+                              name="email-outline"
+                              size={18}
+                            />
+                            <TextInput
+                              autoCapitalize="none"
+                              keyboardType="email-address"
+                              onChangeText={setNewEmailDraft}
+                              placeholder="new.email@example.com"
+                              placeholderTextColor="#94A3B8"
+                              style={styles.sheetTextInput}
+                              value={newEmailDraft}
+                            />
+                          </View>
+                        </View>
+
+                        <View style={styles.sheetInputGroup}>
+                          <Text style={styles.sheetInputLabel}>Confirm New Email</Text>
+                          <View style={styles.sheetInputWrap}>
+                            <MaterialCommunityIcons
+                              color="#94A3B8"
+                              name="check-decagram-outline"
+                              size={18}
+                            />
+                            <TextInput
+                              autoCapitalize="none"
+                              keyboardType="email-address"
+                              onChangeText={setConfirmEmailDraft}
+                              placeholder="Repeat your new email"
+                              placeholderTextColor="#94A3B8"
+                              style={styles.sheetTextInput}
+                              value={confirmEmailDraft}
+                            />
+                          </View>
+                        </View>
+
+                        <View style={styles.sheetNoticeCard}>
                           <MaterialCommunityIcons
-                            color="#94A3B8"
-                            name="account-outline"
+                            color="#C67A00"
+                            name="shield-check-outline"
                             size={18}
                           />
-                          <TextInput
-                            onChangeText={setDisplayNameDraft}
-                            placeholder="Enter your display name"
-                            placeholderTextColor="#94A3B8"
-                            style={styles.sheetTextInput}
-                            value={displayNameDraft}
-                          />
+                          <Text style={styles.sheetNoticeText}>
+                            A recent sign-in is required before a new email can be applied.
+                          </Text>
                         </View>
-                      </View>
-
-                      <View style={styles.sheetInfoCard}>
-                        <Text style={styles.sheetInfoLabel}>Current Email</Text>
-                        <Text style={styles.sheetInfoValue}>{profile.email}</Text>
-                        <Text style={styles.sheetInfoBody}>
-                          Your email stays unchanged here. Use the email sheet when you are ready.
-                        </Text>
                       </View>
 
                       <HapticPressable
                         accessibilityRole="button"
-                        disabled={isSavingProfile}
+                        disabled={isSavingAccountChanges}
                         hapticType="medium"
-                        onPress={handleSaveProfileChanges}
+                        onPress={handleSaveAccountChanges}
                         style={({ pressed }) => [
                           styles.sheetPrimaryButton,
-                          pressed && !isSavingProfile ? styles.sheetPrimaryButtonPressed : null,
-                          isSavingProfile ? styles.sheetPrimaryButtonDisabled : null,
+                          pressed && !isSavingAccountChanges ? styles.sheetPrimaryButtonPressed : null,
+                          isSavingAccountChanges ? styles.sheetPrimaryButtonDisabled : null,
                         ]}>
-                        {isSavingProfile ? (
+                        {isSavingAccountChanges ? (
                           <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
                         ) : null}
                         <Text style={styles.sheetPrimaryButtonText}>
-                          {isSavingProfile ? 'Saving...' : 'Save Changes'}
-                        </Text>
-                      </HapticPressable>
-                    </>
-                  ) : null}
-
-                  {activeSettingsSheet === 'change-email' ? (
-                    <>
-                      <View style={styles.sheetInfoCard}>
-                        <Text style={styles.sheetInfoLabel}>Current Email</Text>
-                        <Text style={styles.sheetInfoValue}>{profile.email}</Text>
-                        <Text style={styles.sheetInfoBody}>
-                          Changing your email will require a secure verification step.
-                        </Text>
-                      </View>
-
-                      <View style={styles.sheetInputGroup}>
-                        <Text style={styles.sheetInputLabel}>New Email</Text>
-                        <View style={styles.sheetInputWrap}>
-                          <MaterialCommunityIcons
-                            color="#94A3B8"
-                            name="email-outline"
-                            size={18}
-                          />
-                          <TextInput
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            onChangeText={setNewEmailDraft}
-                            placeholder="new.email@example.com"
-                            placeholderTextColor="#94A3B8"
-                            style={styles.sheetTextInput}
-                            value={newEmailDraft}
-                          />
-                        </View>
-                      </View>
-
-                      <View style={styles.sheetInputGroup}>
-                        <Text style={styles.sheetInputLabel}>Confirm New Email</Text>
-                        <View style={styles.sheetInputWrap}>
-                          <MaterialCommunityIcons
-                            color="#94A3B8"
-                            name="check-decagram-outline"
-                            size={18}
-                          />
-                          <TextInput
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            onChangeText={setConfirmEmailDraft}
-                            placeholder="Repeat your new email"
-                            placeholderTextColor="#94A3B8"
-                            style={styles.sheetTextInput}
-                            value={confirmEmailDraft}
-                          />
-                        </View>
-                      </View>
-
-                      <View style={styles.sheetNoticeCard}>
-                        <MaterialCommunityIcons
-                          color="#C67A00"
-                          name="shield-check-outline"
-                          size={18}
-                        />
-                        <Text style={styles.sheetNoticeText}>
-                          For security, this flow should ask for a recent sign-in before applying a real email change.
-                        </Text>
-                      </View>
-
-                      <HapticPressable
-                        accessibilityRole="button"
-                        disabled={isPreparingEmailChange}
-                        hapticType="medium"
-                        onPress={handlePrepareEmailChange}
-                        style={({ pressed }) => [
-                          styles.sheetPrimaryButton,
-                          pressed && !isPreparingEmailChange ? styles.sheetPrimaryButtonPressed : null,
-                          isPreparingEmailChange ? styles.sheetPrimaryButtonDisabled : null,
-                        ]}>
-                        {isPreparingEmailChange ? (
-                          <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
-                        ) : null}
-                        <Text style={styles.sheetPrimaryButtonText}>
-                          {isPreparingEmailChange ? 'Preparing...' : 'Review Email Change'}
+                          {isSavingAccountChanges ? 'Saving...' : 'Save Changes'}
                         </Text>
                       </HapticPressable>
                     </>
@@ -1071,144 +1027,159 @@ const styles = StyleSheet.create({
   heroSection: {
     position: 'relative',
     overflow: 'hidden',
-    borderRadius: 28,
-    backgroundColor: '#0F8A68',
+    borderRadius: 30,
+    backgroundColor: '#0C7A60',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     padding: Spacing.lg,
-    gap: Spacing.lg,
+    gap: Spacing.md,
   },
   heroAccentLarge: {
     position: 'absolute',
-    top: -54,
-    right: -42,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
+    top: -70,
+    right: -24,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   heroAccentSmall: {
     position: 'absolute',
-    left: -24,
-    bottom: -54,
-    width: 126,
-    height: 126,
-    borderRadius: 63,
+    left: -28,
+    bottom: -68,
+    width: 144,
+    height: 144,
+    borderRadius: 72,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  profileHeaderRow: {
+  heroAccentMedium: {
+    position: 'absolute',
+    top: 118,
+    right: 68,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  heroTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: Spacing.md,
   },
   profileHeaderCopy: {
     flex: 1,
-    gap: 2,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 4,
   },
-  profileEyebrow: {
-    color: 'rgba(255,255,255,0.78)',
+  profileStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: Radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: Spacing.xs,
+  },
+  profileStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#7CF7C1',
+  },
+  profileStatusText: {
+    color: 'rgba(255,255,255,0.88)',
     fontSize: FontSizes.caption,
     lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
-  avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: Radii.pill,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.20)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   profileName: {
     color: Colors.brand.onPrimary,
-    fontSize: FontSizes.subtitle,
-    lineHeight: LineHeights.subtitle,
+    fontSize: 30,
+    lineHeight: 34,
     fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
+    fontWeight: FontWeights.semibold,
   },
   profileEmail: {
-    color: 'rgba(255,255,255,0.86)',
-    fontSize: FontSizes.sm,
-    lineHeight: LineHeights.sm,
-    fontFamily: Fonts.sans,
-  },
-  levelRow: {
-    gap: Spacing.sm,
-  },
-  levelBadge: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    borderRadius: Radii.pill,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: 10,
-  },
-  levelBadgeText: {
-    color: Colors.brand.onPrimary,
-    fontSize: FontSizes.sm,
-    lineHeight: LineHeights.sm,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-  },
-  levelSupportText: {
-    color: 'rgba(255,255,255,0.84)',
+    color: 'rgba(255,255,255,0.82)',
     fontSize: FontSizes.sm,
     lineHeight: 20,
     fontFamily: Fonts.sans,
   },
-  statsRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
-  statCard: {
-    flex: 1,
+  heroLevelCard: {
+    minWidth: 90,
+    borderRadius: 22,
+    backgroundColor: 'rgba(7, 54, 43, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    gap: 2,
+  },
+  heroLevelLabel: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    textTransform: 'uppercase',
+  },
+  heroLevelValue: {
+    color: Colors.brand.onPrimary,
+    fontSize: 28,
+    lineHeight: 30,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.semibold,
+  },
+  heroLevelHint: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+  },
+  heroMiniStatsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  heroMiniStatCard: {
+    flex: 1,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 116,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.md,
-    minHeight: 96,
   },
-  statCardWarm: {
-    backgroundColor: 'rgba(255, 245, 204, 0.18)',
-  },
-  statCardMint: {
-    backgroundColor: 'rgba(223, 247, 236, 0.14)',
-  },
-  statCardSky: {
-    backgroundColor: 'rgba(227, 241, 255, 0.14)',
-  },
-  statIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
+  heroMiniStatIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.sm,
   },
-  statValue: {
+  heroMiniStatLabel: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: FontSizes.caption,
+    lineHeight: 18,
+    fontFamily: Fonts.sans,
+    textAlign: 'center',
+  },
+  heroMiniStatValue: {
     color: Colors.brand.onPrimary,
     fontSize: 20,
     lineHeight: 24,
     fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
+    fontWeight: FontWeights.semibold,
+    textAlign: 'center',
     marginBottom: 4,
-    textAlign: 'center',
-  },
-  statLabel: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
-    fontFamily: Fonts.sans,
-    textAlign: 'center',
   },
   segmentedControl: {
     width: '100%',
@@ -1660,16 +1631,18 @@ const styles = StyleSheet.create({
   },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.26)',
+    backgroundColor: 'rgba(15, 23, 42, 0.34)',
   },
   sheetHost: {
     justifyContent: 'flex-end',
   },
   sheetCard: {
-    maxHeight: '86%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: Colors.brand.surface,
+    maxHeight: '88%',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    backgroundColor: '#F6FAF8',
+    borderTopWidth: 1,
+    borderColor: '#DDEAE3',
     paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
     shadowColor: '#0F172A',
@@ -1680,11 +1653,11 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     alignSelf: 'center',
-    width: 46,
-    height: 5,
+    width: 54,
+    height: 6,
     borderRadius: Radii.pill,
-    backgroundColor: '#D7DEE6',
-    marginBottom: Spacing.md,
+    backgroundColor: '#C9D7D0',
+    marginBottom: Spacing.lg,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1692,6 +1665,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.md,
     marginBottom: Spacing.lg,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2EEE7',
+    padding: Spacing.md,
   },
   sheetHeaderCopy: {
     flex: 1,
@@ -1702,10 +1680,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   sheetTitleIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#DFF7EC',
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: '#E6F7EF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1727,48 +1705,47 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
   sheetCloseButton: {
-    width: 34,
-    height: 34,
+    width: 38,
+    height: 38,
     borderRadius: Radii.pill,
-    backgroundColor: '#F4F7FA',
+    backgroundColor: '#EFF5F1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sheetScrollContent: {
     gap: Spacing.lg,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.lg,
   },
-  sheetProfileHero: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sheetSectionCard: {
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2EEE7',
+    padding: Spacing.lg,
     gap: Spacing.md,
-    borderRadius: 20,
-    backgroundColor: '#F5FBF8',
-    padding: Spacing.md,
   },
-  sheetAvatarCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: Radii.pill,
-    backgroundColor: '#E2F8EE',
-    alignItems: 'center',
-    justifyContent: 'center',
+  sheetSectionHeader: {
+    gap: 4,
   },
-  sheetProfileCopy: {
-    flex: 1,
-    gap: 2,
+  sheetSectionEyebrow: {
+    color: Colors.brand.primary,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+    textTransform: 'uppercase',
   },
-  sheetProfileName: {
+  sheetSectionTitle: {
     color: Colors.brand.text,
     fontSize: FontSizes.body,
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
+    fontWeight: FontWeights.semibold,
   },
-  sheetProfileEmail: {
+  sheetSectionBody: {
     color: '#667387',
     fontSize: FontSizes.sm,
-    lineHeight: LineHeights.sm,
+    lineHeight: 21,
     fontFamily: Fonts.sans,
   },
   sheetInputGroup: {
@@ -1785,8 +1762,8 @@ const styles = StyleSheet.create({
     minHeight: 54,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D7DEE6',
-    backgroundColor: '#FAFCFD',
+    borderColor: '#D8E5DE',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
@@ -1802,7 +1779,9 @@ const styles = StyleSheet.create({
   },
   sheetInfoCard: {
     borderRadius: 20,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: '#F2F8F5',
+    borderWidth: 1,
+    borderColor: '#DFECE5',
     padding: Spacing.lg,
     gap: Spacing.xs,
   },
@@ -1828,6 +1807,8 @@ const styles = StyleSheet.create({
   sheetNoticeCard: {
     borderRadius: 18,
     backgroundColor: '#FFF8E8',
+    borderWidth: 1,
+    borderColor: '#F5E1B2',
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.sm,
@@ -1854,6 +1835,17 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 4,
   },
+  sheetSecondaryButton: {
+    minHeight: 54,
+    borderRadius: 18,
+    backgroundColor: '#EDF7F2',
+    borderWidth: 1,
+    borderColor: '#CFE7DB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
   sheetPrimaryButtonPressed: {
     opacity: 0.94,
   },
@@ -1867,11 +1859,34 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
   },
-  privacySection: {
-    borderRadius: 20,
-    backgroundColor: Colors.brand.surface,
+  sheetSecondaryButtonText: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.semibold,
+  },
+  sheetTertiaryButton: {
+    minHeight: 48,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#EEF2F5',
+    borderColor: '#E0E9E3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetTertiaryButtonText: {
+    color: '#5E6F66',
+    fontSize: FontSizes.body,
+    lineHeight: LineHeights.body,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  privacySection: {
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2EEE7',
     padding: Spacing.lg,
   },
   privacyRow: {
