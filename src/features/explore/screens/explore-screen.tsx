@@ -239,8 +239,18 @@ export default function ExploreScreen() {
   }
 
   function handleDirectionsPress(center: RecyclingCenter) {
-    const query = encodeURIComponent(`${center.coordinate.latitude},${center.coordinate.longitude}`);
-    void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${query}`);
+    const destinationParts = [center.name, center.address].filter(Boolean);
+    const destinationLabel = destinationParts.length
+      ? destinationParts.join(', ')
+      : `${center.coordinate.latitude},${center.coordinate.longitude}`;
+    const destination = encodeURIComponent(destinationLabel);
+    const destinationPlaceId = center.googlePlaceId
+      ? `&destination_place_id=${encodeURIComponent(center.googlePlaceId)}`
+      : '';
+
+    void Linking.openURL(
+      `https://www.google.com/maps/dir/?api=1&destination=${destination}${destinationPlaceId}&travelmode=driving&dir_action=navigate`
+    );
   }
 
   return (
@@ -430,9 +440,16 @@ export default function ExploreScreen() {
 
             {orderedCenters.map((center) => {
               const isSelected = center.id === selectedCenterId;
-              const acceptedMaterials = center.acceptedMaterials.length
+              const detailChips = center.acceptedMaterials.length
                 ? center.acceptedMaterials
-                : ['Mixed Recycling'];
+                : [center.category ?? 'Recycling center', center.businessStatus ?? center.source];
+              const detailsLabel = center.acceptedMaterials.length ? 'Accepts' : 'Place details';
+              const ratingLabel =
+                typeof center.rating === 'number' ? center.rating.toFixed(1) : null;
+              const ratingCountLabel =
+                typeof center.ratingCount === 'number'
+                  ? `(${center.ratingCount.toLocaleString()})`
+                  : null;
 
               return (
                 <View
@@ -450,8 +467,37 @@ export default function ExploreScreen() {
                       <View style={styles.centerHeaderCopy}>
                         <Text style={styles.centerName}>{center.name}</Text>
 
+                        <View style={styles.centerRatingRow}>
+                          {ratingLabel ? (
+                            <>
+                              <MaterialCommunityIcons color="#F59E0B" name="star" size={14} />
+                              <Text style={styles.centerRatingText}>{ratingLabel}</Text>
+                              {ratingCountLabel ? (
+                                <Text style={styles.centerReviewText}>{ratingCountLabel}</Text>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              <MaterialCommunityIcons
+                                color="#0B7F55"
+                                name="recycle"
+                                size={14}
+                              />
+                              <Text style={styles.centerCategoryText}>
+                                {center.category ?? 'Recycling center'}
+                              </Text>
+                            </>
+                          )}
+                          <Text style={styles.centerDistanceMeta}>·</Text>
+                          <Text style={styles.centerDistanceMeta}>{center.source}</Text>
+                        </View>
+
                         <View style={styles.centerDistanceRow}>
-                          <MaterialCommunityIcons color="#F59E0B" name="star" size={14} />
+                          <MaterialCommunityIcons
+                            color={Colors.brand.primaryDark}
+                            name="map-marker-distance"
+                            size={14}
+                          />
                           <Text style={styles.centerDistanceText}>{formatDistance(center.distanceMeters)}</Text>
                           <Text style={styles.centerDistanceMeta}>
                             {userLocation ? 'from you' : 'from map center'}
@@ -481,7 +527,12 @@ export default function ExploreScreen() {
 
                     <View style={styles.centerMetaRow}>
                       <MaterialCommunityIcons color="#667387" name="clock-outline" size={16} />
-                      <Text style={styles.centerMetaText}>
+                      <Text
+                        style={[
+                          styles.centerMetaText,
+                          center.isOpenNow === true ? styles.centerMetaOpenText : null,
+                          center.isOpenNow === false ? styles.centerMetaClosedText : null,
+                        ]}>
                         {center.openingHours ?? 'Opening hours not listed'}
                       </Text>
                     </View>
@@ -496,9 +547,9 @@ export default function ExploreScreen() {
 
                   <View style={styles.centerDivider} />
 
-                  <Text style={styles.acceptsLabel}>Accepts</Text>
+                  <Text style={styles.acceptsLabel}>{detailsLabel}</Text>
                   <View style={styles.acceptsWrap}>
-                    {acceptedMaterials.map((material) => (
+                    {detailChips.map((material) => (
                       <View key={`${center.id}-${material}`} style={styles.acceptsChip}>
                         <Text style={styles.acceptsChipText}>{material}</Text>
                       </View>
@@ -556,8 +607,8 @@ export default function ExploreScreen() {
 
             {centers.length > 0 ? (
               <Text style={styles.dataNote}>
-                Live center data comes from OpenStreetMap&apos;s mapped recycling locations for the
-                current map area.
+                Live center data uses Google Places when configured, with OpenStreetMap as the
+                fallback for mapped recycling locations.
               </Text>
             ) : null}
           </View>
@@ -747,12 +798,27 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontFamily: Fonts.sans,
   },
+  centerMetaClosedText: {
+    color: '#B42318',
+    fontWeight: FontWeights.medium,
+  },
+  centerMetaOpenText: {
+    color: Colors.brand.primaryDark,
+    fontWeight: FontWeights.medium,
+  },
   centerName: {
     color: Colors.brand.text,
     fontSize: FontSizes.body,
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
+  },
+  centerCategoryText: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
   },
   centerPinBadge: {
     width: 38,
@@ -764,6 +830,25 @@ const styles = StyleSheet.create({
   },
   centerPinBadgeSelected: {
     backgroundColor: Colors.brand.primaryDark,
+  },
+  centerRatingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  centerRatingText: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.semibold,
+  },
+  centerReviewText: {
+    color: '#7A8795',
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
   },
   dataNote: {
     color: '#7A8795',
