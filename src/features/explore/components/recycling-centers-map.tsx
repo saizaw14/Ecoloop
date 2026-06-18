@@ -112,7 +112,8 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   centerMarkerBubbleSelected: {
-    backgroundColor: '#0AA36C',
+    shadowOpacity: 0.28,
+    transform: [{ scale: 1.08 }],
   },
   mapGlowLarge: {
     position: 'absolute',
@@ -160,9 +161,9 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0AA36C',
     borderWidth: 2,
-    borderColor: '#0AA36C',
+    borderColor: '#FFFFFF',
     shadowColor: '#0B7F55',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,

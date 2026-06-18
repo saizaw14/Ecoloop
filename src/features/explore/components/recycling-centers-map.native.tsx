@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
@@ -25,33 +24,8 @@ export function RecyclingCentersMap({
   selectedCenterId,
   userLocation,
 }: RecyclingCentersMapProps) {
-  const mapRef = useRef<MapView | null>(null);
-
-  useEffect(() => {
-    if (!selectedCenterId) {
-      return;
-    }
-
-    const selectedCenter = centers.find((center) => center.id === selectedCenterId);
-
-    if (!selectedCenter) {
-      return;
-    }
-
-    mapRef.current?.animateToRegion(
-      {
-        latitude: selectedCenter.coordinate.latitude,
-        longitude: selectedCenter.coordinate.longitude,
-        latitudeDelta: Math.max(mapRegion.latitudeDelta * 0.72, 0.014),
-        longitudeDelta: Math.max(mapRegion.longitudeDelta * 0.72, 0.014),
-      },
-      280
-    );
-  }, [centers, mapRegion.latitudeDelta, mapRegion.longitudeDelta, selectedCenterId]);
-
   return (
     <MapView
-      ref={mapRef}
       loadingEnabled
       mapPadding={styles.mapPadding}
       region={mapRegion}
@@ -73,21 +47,21 @@ export function RecyclingCentersMap({
         </Marker>
       ) : null}
 
-      {centers.map((center) => {
-        const isSelected = center.id === selectedCenterId;
-
-        return (
-          <Marker
-            key={center.id}
-            coordinate={center.coordinate}
-            identifier={center.id}
-            onPress={() => onSelectCenter(center.id)}>
-            <View style={[styles.centerMarker, isSelected ? styles.centerMarkerSelected : null]}>
-              <View style={[styles.centerMarkerDot, isSelected ? styles.centerMarkerDotSelected : null]} />
-            </View>
-          </Marker>
-        );
-      })}
+      {centers.map((center) => (
+        <Marker
+          key={center.id}
+          coordinate={center.coordinate}
+          identifier={center.id}
+          onPress={() => onSelectCenter(center.id)}>
+          <View
+            style={[
+              styles.centerMarker,
+              center.id === selectedCenterId ? styles.centerMarkerSelected : null,
+            ]}>
+            <View style={styles.centerMarkerDot} />
+          </View>
+        </Marker>
+      ))}
     </MapView>
   );
 }
@@ -114,12 +88,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: '#F5EDFF',
   },
-  centerMarkerDotSelected: {
-    backgroundColor: '#D1FAE5',
-  },
   centerMarkerSelected: {
-    backgroundColor: '#0AA36C',
-    shadowColor: '#0AA36C',
+    shadowOpacity: 0.32,
     transform: [{ scale: 1.1 }],
   },
   map: {

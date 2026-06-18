@@ -68,9 +68,12 @@ export default function ExploreScreen() {
     ? [selectedCenter, ...centers.filter((center) => center.id !== selectedCenter.id)]
     : centers;
   const isSearchAreaDirty = hasSearchAreaChanged(mapRegion, lastSearchRegion);
-  const locationPillLabel = locationStatus === 'granted' ? 'Current Location' : 'Enable Location';
-  const centerCountLabel =
-    centers.length === 1 ? '1 live recycling center' : `${centers.length} live recycling centers`;
+  const resultCountLabel =
+    isLoadingCenters && centers.length === 0
+      ? 'Searching...'
+      : centers.length === 1
+        ? '1 center'
+        : `${centers.length} centers`;
   const initializeNearbyCentersRef = useRef<() => Promise<void>>(async () => {});
 
   initializeNearbyCentersRef.current = async () => {
@@ -336,37 +339,46 @@ export default function ExploreScreen() {
                 </HapticPressable>
               ) : null}
 
-              <View style={styles.mapSummaryCard}>
-                <Text style={styles.mapSummaryTitle}>Map</Text>
-                <Text style={styles.mapSummaryBody}>
-                  {isLoadingCenters ? 'Finding live recycling spots...' : `Showing ${centerCountLabel}`}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderCopy}>
-                <Text style={styles.sectionTitle}>Nearby Centers</Text>
-                <Text style={styles.sectionSubtitle}>Based on live OpenStreetMap recycling data</Text>
-              </View>
-
               <HapticPressable
+                accessibilityLabel="Recenter map to current location"
                 accessibilityRole="button"
+                disabled={isLocatingUser}
                 hapticType="selection"
                 onPress={() => {
                   void handleLocateMePress();
                 }}
                 style={({ pressed }) => [
-                  styles.locationPillButton,
-                  pressed ? styles.locationPillButtonPressed : null,
+                  styles.recenterMapButton,
+                  pressed ? styles.recenterMapButtonPressed : null,
+                  isLocatingUser ? styles.recenterMapButtonDisabled : null,
                 ]}>
                 {isLocatingUser ? (
-                  <ActivityIndicator color="#9333EA" size="small" />
+                  <ActivityIndicator color={Colors.brand.primaryDark} size="small" />
                 ) : (
-                  <MaterialCommunityIcons color="#9333EA" name="navigation-variant-outline" size={15} />
+                  <MaterialCommunityIcons
+                    color={Colors.brand.primaryDark}
+                    name="crosshairs-gps"
+                    size={22}
+                  />
                 )}
-                <Text style={styles.locationPillButtonText}>{locationPillLabel}</Text>
               </HapticPressable>
+
+            </View>
+
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderCopy}>
+                <Text style={styles.sectionTitle}>Nearby Centers</Text>
+                <Text style={styles.sectionSubtitle}>Results for the current map search area</Text>
+              </View>
+
+              <View style={styles.resultCountPill}>
+                {isLoadingCenters && centers.length === 0 ? (
+                  <ActivityIndicator color={Colors.brand.primaryDark} size="small" />
+                ) : (
+                  <MaterialCommunityIcons color={Colors.brand.primaryDark} name="recycle" size={15} />
+                )}
+                <Text style={styles.resultCountPillText}>{resultCountLabel}</Text>
+              </View>
             </View>
 
             {locationStatus !== 'granted' ? (
@@ -909,27 +921,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
   },
-  locationPillButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: Radii.pill,
-    backgroundColor: '#FAF2FF',
-    flexDirection: 'row',
-    gap: 6,
-    minHeight: 34,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  locationPillButtonPressed: {
-    opacity: 0.92,
-  },
-  locationPillButtonText: {
-    color: '#9333EA',
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-  },
   mapBadge: {
     position: 'absolute',
     left: 14,
@@ -959,32 +950,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 22,
     elevation: 5,
-  },
-  mapSummaryBody: {
-    color: 'rgba(255,255,255,0.92)',
-    fontSize: FontSizes.caption,
-    lineHeight: 18,
-    fontFamily: Fonts.sans,
-    textAlign: 'center',
-  },
-  mapSummaryCard: {
-    position: 'absolute',
-    bottom: 14,
-    alignSelf: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(11,127,85,0.82)',
-    borderRadius: 18,
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  mapSummaryTitle: {
-    color: Colors.brand.onPrimary,
-    fontSize: FontSizes.body,
-    lineHeight: LineHeights.body,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-    marginBottom: 2,
   },
   primaryActionButton: {
     minHeight: 46,
@@ -1026,6 +991,52 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
+  },
+  resultCountPill: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: Radii.pill,
+    backgroundColor: '#EAF7F1',
+    borderWidth: 1,
+    borderColor: '#CFE7DB',
+    flexDirection: 'row',
+    gap: 6,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  resultCountPillText: {
+    color: Colors.brand.primaryDark,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.medium,
+  },
+  recenterMapButton: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    width: 46,
+    height: 46,
+    borderRadius: Radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderWidth: 1,
+    borderColor: '#D7E7DD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 6,
+    zIndex: 3,
+  },
+  recenterMapButtonDisabled: {
+    opacity: 0.72,
+  },
+  recenterMapButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   safeArea: {
     flex: 1,
