@@ -46,6 +46,13 @@ type GooglePlacesResponse = {
   places?: GooglePlace[];
 };
 
+type GooglePlacesErrorResponse = {
+  error?: {
+    message?: string;
+    status?: string;
+  };
+};
+
 type OverpassElement = {
   center?: {
     lat: number;
@@ -63,10 +70,11 @@ type OverpassResponse = {
 };
 
 const DEFAULT_LIMIT = 8;
-const googlePlacesEndpoint = 'https://places.googleapis.com/v1/places:searchText';
+const googleTextSearchEndpoint = 'https://places.googleapis.com/v1/places:searchText';
+const googlePlaceDetailsEndpoint = 'https://places.googleapis.com/v1/places';
 const overpassEndpoint = 'https://overpass-api.de/api/interpreter';
 
-const googlePlacesFieldMask = [
+const googleTextSearchFieldMask = [
   'places.businessStatus',
   'places.currentOpeningHours',
   'places.displayName',
@@ -83,6 +91,36 @@ const googlePlacesFieldMask = [
   'places.userRatingCount',
   'places.websiteUri',
 ].join(',');
+
+const googlePlaceDetailsFieldMask = [
+  'businessStatus',
+  'currentOpeningHours',
+  'displayName',
+  'formattedAddress',
+  'googleMapsUri',
+  'id',
+  'internationalPhoneNumber',
+  'location',
+  'nationalPhoneNumber',
+  'primaryTypeDisplayName',
+  'rating',
+  'regularOpeningHours',
+  'types',
+  'userRatingCount',
+  'websiteUri',
+].join(',');
+
+const googleRecyclingSearchKeywords = [
+  'recycling center near me',
+  'recycle centre near me',
+  'pusat kitar semula',
+  'plastic recycling near me',
+  'paper recycling near me',
+  'glass recycling near me',
+  'metal recycling near me',
+  'e-waste recycling near me',
+  'scrap metal recycling near me',
+];
 
 const acceptedMaterialTags: [string, string][] = [
   ['recycling:plastic', 'Plastic'],
@@ -110,6 +148,40 @@ function getGooglePlacesApiKey() {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ||
     null
   );
+}
+
+function assertGooglePlacesApiKey() {
+  const apiKey = getGooglePlacesApiKey();
+
+  if (!apiKey) {
+    throw new Error(
+      'Google Places API key is missing. Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to your Expo env file.'
+    );
+  }
+
+  return apiKey;
+}
+
+async function createGooglePlacesRequestError(response: Response, requestName: string) {
+  const fallbackMessage = `${requestName} failed with status ${response.status}.`;
+
+  try {
+    const payload = (await response.json()) as GooglePlacesErrorResponse;
+    const googleMessage = payload.error?.message?.trim();
+    const googleStatus = payload.error?.status?.trim();
+
+    if (googleMessage && googleStatus) {
+      return new Error(`${requestName} failed: ${googleMessage} (${googleStatus}).`);
+    }
+
+    if (googleMessage) {
+      return new Error(`${requestName} failed: ${googleMessage}`);
+    }
+  } catch {
+    return new Error(fallbackMessage);
+  }
+
+  return new Error(fallbackMessage);
 }
 
 function isAffirmativeTagValue(value?: string) {
@@ -265,6 +337,47 @@ function formatGoogleOpeningHours(place: GooglePlace) {
   return status ?? todayDescription;
 }
 
+function getGooglePlacePhone(place: GooglePlace) {
+  return (
+    place.nationalPhoneNumber?.trim() ||
+    place.internationalPhoneNumber?.trim() ||
+    null
+  );
+}
+
+function mapGooglePlaceToRecyclingCenter(
+  place: GooglePlace,
+  distanceOrigin: MapCoordinate
+): RecyclingCenter | null {
+  const coordinate = getGooglePlaceCoordinate(place);
+  const googlePlaceId = getGooglePlaceId(place);
+
+  if (!coordinate || !googlePlaceId) {
+    return null;
+  }
+
+  return {
+    acceptedMaterials: [],
+    address: place.formattedAddress?.trim() || null,
+    businessStatus: normalizeBusinessStatus(place.businessStatus),
+    category: getGooglePlaceCategory(place),
+    coordinate,
+    distanceMeters: calculateDistanceMeters(distanceOrigin, coordinate),
+    googleMapsUri: place.googleMapsUri?.trim() || null,
+    googlePlaceId,
+    id: `google-${googlePlaceId}`,
+    isOpenNow: getGoogleOpeningStatus(place),
+    name: getGooglePlaceName(place),
+    openingHours: formatGoogleOpeningHours(place),
+    phone: getGooglePlacePhone(place),
+    rating: typeof place.rating === 'number' ? place.rating : null,
+    ratingCount:
+      typeof place.userRatingCount === 'number' ? place.userRatingCount : null,
+    source: 'Google Places' as const,
+    website: place.websiteUri?.trim() || null,
+  } satisfies RecyclingCenter;
+}
+
 function getTodayOpeningDescription(weekdayDescriptions?: string[]) {
   if (!weekdayDescriptions?.length) {
     return null;
@@ -298,13 +411,88 @@ async function fetchGoogleRecyclingCenters({
   radiusMeters,
   searchOrigin,
 }: Required<FetchNearbyRecyclingCentersParams>) {
-  const apiKey = getGooglePlacesApiKey();
+  const apiKey = assertGooglePlacesApiKey();
+  const searchResults = await Promise.allSettled(
+    googleRecyclingSearchKeywords.map((keyword) =>
+      fetchGooglePlacesForKeyword({
+        apiKey,
+        keyword,
+        limit,
+        radiusMeters,
+        searchOrigin,
+      })
+    )
+  );
+  const placesById = new Map<string, GooglePlace>();
+  const seenPlaceIds = new Set<string>();
 
-  if (!apiKey) {
+  for (const result of searchResults) {
+    if (result.status === 'rejected') {
+      continue;
+    }
+
+    for (const place of result.value) {
+      const googlePlaceId = getGooglePlaceId(place);
+
+      if (googlePlaceId && !seenPlaceIds.has(googlePlaceId)) {
+        seenPlaceIds.add(googlePlaceId);
+        placesById.set(googlePlaceId, place);
+      }
+    }
+  }
+
+  if (placesById.size === 0) {
+    const firstRejectedSearch = searchResults.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+
+    if (firstRejectedSearch) {
+      throw firstRejectedSearch.reason;
+    }
+
     return [];
   }
 
-  const response = await fetch(googlePlacesEndpoint, {
+  const searchCenters = [...placesById.values()]
+    .map((place) => mapGooglePlaceToRecyclingCenter(place, distanceOrigin))
+    .filter((center): center is RecyclingCenter => Boolean(center))
+    .sort(
+      (leftCenter, rightCenter) =>
+        leftCenter.distanceMeters - rightCenter.distanceMeters ||
+        leftCenter.name.localeCompare(rightCenter.name)
+    )
+    .slice(0, limit);
+
+  const detailedCenters = await Promise.allSettled(
+    searchCenters.map((center) =>
+      fetchGooglePlaceDetails({
+        apiKey,
+        distanceOrigin,
+        fallbackCenter: center,
+        placeId: center.googlePlaceId,
+      })
+    )
+  );
+
+  return detailedCenters.map((result, index) =>
+    result.status === 'fulfilled' ? result.value : searchCenters[index]
+  );
+}
+
+async function fetchGooglePlacesForKeyword({
+  apiKey,
+  keyword,
+  limit,
+  radiusMeters,
+  searchOrigin,
+}: {
+  apiKey: string;
+  keyword: string;
+  limit: number;
+  radiusMeters: number;
+  searchOrigin: MapCoordinate;
+}) {
+  const response = await fetch(googleTextSearchEndpoint, {
     body: JSON.stringify({
       includePureServiceAreaBusinesses: false,
       languageCode: 'en',
@@ -317,69 +505,67 @@ async function fetchGoogleRecyclingCenters({
           radius: clampSearchRadiusMeters(radiusMeters),
         },
       },
-      maxResultCount: limit,
+      maxResultCount: Math.min(Math.max(limit, 1), 10),
       rankPreference: 'DISTANCE',
       regionCode: 'MY',
-      textQuery: 'recycling centre',
+      textQuery: keyword,
     }),
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': googlePlacesFieldMask,
+      'X-Goog-FieldMask': googleTextSearchFieldMask,
     },
     method: 'POST',
   });
 
   if (!response.ok) {
-    throw new Error(`Google Places request failed with ${response.status}`);
+    throw await createGooglePlacesRequestError(response, 'Google Places Text Search');
   }
 
   const payload = (await response.json()) as GooglePlacesResponse;
-  const places = payload.places ?? [];
-  const seenPlaceIds = new Set<string>();
+  return payload.places ?? [];
+}
 
-  return places
-    .map((place): RecyclingCenter | null => {
-      const coordinate = getGooglePlaceCoordinate(place);
-      const googlePlaceId = getGooglePlaceId(place);
+async function fetchGooglePlaceDetails({
+  apiKey,
+  distanceOrigin,
+  fallbackCenter,
+  placeId,
+}: {
+  apiKey: string;
+  distanceOrigin: MapCoordinate;
+  fallbackCenter: RecyclingCenter;
+  placeId: string | null;
+}) {
+  if (!placeId) {
+    return fallbackCenter;
+  }
 
-      if (!coordinate || !googlePlaceId || seenPlaceIds.has(googlePlaceId)) {
-        return null;
-      }
+  const response = await fetch(`${googlePlaceDetailsEndpoint}/${encodeURIComponent(placeId)}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': googlePlaceDetailsFieldMask,
+    },
+    method: 'GET',
+  });
 
-      seenPlaceIds.add(googlePlaceId);
+  if (!response.ok) {
+    throw await createGooglePlacesRequestError(response, 'Google Place Details');
+  }
 
-      return {
-        acceptedMaterials: [],
-        address: place.formattedAddress?.trim() || null,
-        businessStatus: normalizeBusinessStatus(place.businessStatus),
-        category: getGooglePlaceCategory(place),
-        coordinate,
-        distanceMeters: calculateDistanceMeters(distanceOrigin, coordinate),
-        googleMapsUri: place.googleMapsUri?.trim() || null,
-        googlePlaceId,
-        id: `google-${googlePlaceId}`,
-        isOpenNow: getGoogleOpeningStatus(place),
-        name: getGooglePlaceName(place),
-        openingHours: formatGoogleOpeningHours(place),
-        phone:
-          place.internationalPhoneNumber?.trim() ||
-          place.nationalPhoneNumber?.trim() ||
-          null,
-        rating: typeof place.rating === 'number' ? place.rating : null,
-        ratingCount:
-          typeof place.userRatingCount === 'number' ? place.userRatingCount : null,
-        source: 'Google Places' as const,
-        website: place.websiteUri?.trim() || null,
-      } satisfies RecyclingCenter;
-    })
-    .filter((center): center is RecyclingCenter => Boolean(center))
-    .sort(
-      (leftCenter, rightCenter) =>
-        leftCenter.distanceMeters - rightCenter.distanceMeters ||
-        leftCenter.name.localeCompare(rightCenter.name)
-    )
-    .slice(0, limit);
+  const place = (await response.json()) as GooglePlace;
+  const detailedCenter = mapGooglePlaceToRecyclingCenter(place, distanceOrigin);
+
+  if (!detailedCenter) {
+    return fallbackCenter;
+  }
+
+  return {
+    ...fallbackCenter,
+    ...detailedCenter,
+    distanceMeters: fallbackCenter.distanceMeters,
+  } satisfies RecyclingCenter;
 }
 
 async function fetchOpenStreetMapRecyclingCenters({
@@ -480,16 +666,27 @@ export async function fetchNearbyRecyclingCenters({
     radiusMeters,
     searchOrigin,
   };
+  let googleRequestError: unknown = null;
 
   try {
     const googleCenters = await fetchGoogleRecyclingCenters(requestParams);
 
-    if (googleCenters.length > 0) {
-      return googleCenters;
-    }
-  } catch {
-    // Fall back to open map data when Places is not configured, unavailable, or restricted.
+    return googleCenters;
+  } catch (error) {
+    googleRequestError = error;
   }
 
-  return fetchOpenStreetMapRecyclingCenters(requestParams);
+  try {
+    const fallbackCenters = await fetchOpenStreetMapRecyclingCenters(requestParams);
+
+    if (fallbackCenters.length > 0) {
+      return fallbackCenters;
+    }
+  } catch {
+    // Keep the original Google error because it explains why real details are unavailable.
+  }
+
+  throw googleRequestError instanceof Error
+    ? googleRequestError
+    : new Error('Google Places could not load recycling centre details right now.');
 }

@@ -46,8 +46,7 @@ const DEFAULT_MAP_REGION: MapRegion = {
 
 const selectedMapZoomDelta = 0.055;
 const mapShiftThresholdMeters = 350;
-const minSearchRadiusMeters = 1800;
-const maxSearchRadiusMeters = 9000;
+const defaultSearchRadiusMeters = 10000;
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -68,6 +67,7 @@ export default function ExploreScreen() {
     ? [selectedCenter, ...centers.filter((center) => center.id !== selectedCenter.id)]
     : centers;
   const isSearchAreaDirty = hasSearchAreaChanged(mapRegion, lastSearchRegion);
+  const isSearchingMapArea = isRefreshingArea || (isLoadingCenters && centers.length === 0);
   const resultCountLabel =
     isLoadingCenters && centers.length === 0
       ? 'Searching...'
@@ -163,7 +163,7 @@ export default function ExploreScreen() {
     try {
       const nearbyCenters = await fetchNearbyRecyclingCenters({
         distanceOrigin,
-        radiusMeters: deriveSearchRadiusMeters(region),
+        radiusMeters: defaultSearchRadiusMeters,
         searchOrigin,
       });
 
@@ -174,8 +174,12 @@ export default function ExploreScreen() {
           ? currentSelectedCenterId
           : nearbyCenters[0]?.id ?? null
       );
-    } catch {
-      setErrorMessage('We could not load live recycling-center data for this map area.');
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'We could not load live recycling-center data for this map area.'
+      );
 
       if (options.mode === 'initial') {
         setCenters([]);
@@ -313,36 +317,40 @@ export default function ExploreScreen() {
                 <Text style={styles.mapBadgeText}>Live Map</Text>
               </View>
 
-              {isSearchAreaDirty ? (
-                <HapticPressable
-                  accessibilityRole="button"
-                  hapticType="selection"
-                  onPress={() => {
-                    void handleSearchThisAreaPress();
-                  }}
-                  style={({ pressed }) => [
-                    styles.searchAreaButton,
-                    pressed ? styles.searchAreaButtonPressed : null,
-                  ]}>
-                  {isRefreshingArea ? (
-                    <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
-                  ) : (
-                    <MaterialCommunityIcons
-                      color={Colors.brand.onPrimary}
-                      name="crosshairs-gps"
-                      size={14}
-                    />
-                  )}
-                  <Text style={styles.searchAreaButtonText}>
-                    {isRefreshingArea ? 'Searching...' : 'Search This Area'}
-                  </Text>
-                </HapticPressable>
-              ) : null}
+              <HapticPressable
+                accessibilityRole="button"
+                disabled={isSearchingMapArea}
+                hapticType="selection"
+                onPress={() => {
+                  void handleSearchThisAreaPress();
+                }}
+                style={({ pressed }) => [
+                  styles.searchAreaButton,
+                  pressed ? styles.searchAreaButtonPressed : null,
+                  isSearchingMapArea ? styles.searchAreaButtonDisabled : null,
+                ]}>
+                {isSearchingMapArea ? (
+                  <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+                ) : (
+                  <MaterialCommunityIcons
+                    color={Colors.brand.onPrimary}
+                    name={isSearchAreaDirty ? 'crosshairs-gps' : 'magnify'}
+                    size={14}
+                  />
+                )}
+                <Text style={styles.searchAreaButtonText}>
+                  {isSearchingMapArea
+                    ? 'Searching...'
+                    : isSearchAreaDirty
+                      ? 'Search This Area'
+                      : 'Search Centers'}
+                </Text>
+              </HapticPressable>
 
               <HapticPressable
-                accessibilityLabel="Recenter map to current location"
+                accessibilityLabel="Recenter map and search nearby recycling centers"
                 accessibilityRole="button"
-                disabled={isLocatingUser}
+                disabled={isLocatingUser || isRefreshingArea}
                 hapticType="selection"
                 onPress={() => {
                   void handleLocateMePress();
@@ -350,7 +358,7 @@ export default function ExploreScreen() {
                 style={({ pressed }) => [
                   styles.recenterMapButton,
                   pressed ? styles.recenterMapButtonPressed : null,
-                  isLocatingUser ? styles.recenterMapButtonDisabled : null,
+                  isLocatingUser || isRefreshingArea ? styles.recenterMapButtonDisabled : null,
                 ]}>
                 {isLocatingUser ? (
                   <ActivityIndicator color={Colors.brand.primaryDark} size="small" />
@@ -421,12 +429,12 @@ export default function ExploreScreen() {
                   <MaterialCommunityIcons color="#9333EA" name="map-search-outline" size={22} />
                 </View>
                 <Text style={styles.stateTitle}>
-                  {errorMessage ? 'Live data is unavailable right now' : 'No recycling centers found here'}
+                  {errorMessage ? 'Live data is unavailable right now' : 'No recycling centres found nearby'}
                 </Text>
                 <Text style={styles.stateBody}>
                   {errorMessage
-                    ? 'Please try again in a moment or move the map to a different area.'
-                    : 'Move the map, refresh this area, or switch back to your current location to search again.'}
+                    ? errorMessage
+                    : 'No recycling centres found nearby. Try increasing the search radius.'}
                 </Text>
                 <HapticPressable
                   accessibilityRole="button"
@@ -452,16 +460,9 @@ export default function ExploreScreen() {
 
             {orderedCenters.map((center) => {
               const isSelected = center.id === selectedCenterId;
-              const detailChips = center.acceptedMaterials.length
+              const acceptedMaterialChips = center.acceptedMaterials.length
                 ? center.acceptedMaterials
-                : [center.category ?? 'Recycling center', center.businessStatus ?? center.source];
-              const detailsLabel = center.acceptedMaterials.length ? 'Accepts' : 'Place details';
-              const ratingLabel =
-                typeof center.rating === 'number' ? center.rating.toFixed(1) : null;
-              const ratingCountLabel =
-                typeof center.ratingCount === 'number'
-                  ? `(${center.ratingCount.toLocaleString()})`
-                  : null;
+                : ['Materials not listed', 'Call to confirm'];
 
               return (
                 <View
@@ -476,69 +477,50 @@ export default function ExploreScreen() {
                       pressed ? styles.centerCardPressed : null,
                     ]}>
                     <View style={styles.centerHeader}>
-                      <View style={styles.centerHeaderCopy}>
-                        <Text style={styles.centerName}>{center.name}</Text>
-
-                        <View style={styles.centerRatingRow}>
-                          {ratingLabel ? (
-                            <>
-                              <MaterialCommunityIcons color="#F59E0B" name="star" size={14} />
-                              <Text style={styles.centerRatingText}>{ratingLabel}</Text>
-                              {ratingCountLabel ? (
-                                <Text style={styles.centerReviewText}>{ratingCountLabel}</Text>
-                              ) : null}
-                            </>
-                          ) : (
-                            <>
-                              <MaterialCommunityIcons
-                                color="#0B7F55"
-                                name="recycle"
-                                size={14}
-                              />
-                              <Text style={styles.centerCategoryText}>
-                                {center.category ?? 'Recycling center'}
-                              </Text>
-                            </>
-                          )}
-                          <Text style={styles.centerDistanceMeta}>·</Text>
-                          <Text style={styles.centerDistanceMeta}>{center.source}</Text>
-                        </View>
-
-                        <View style={styles.centerDistanceRow}>
-                          <MaterialCommunityIcons
-                            color={Colors.brand.primaryDark}
-                            name="map-marker-distance"
-                            size={14}
-                          />
-                          <Text style={styles.centerDistanceText}>{formatDistance(center.distanceMeters)}</Text>
-                          <Text style={styles.centerDistanceMeta}>
-                            {userLocation ? 'from you' : 'from map center'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View
-                        style={[
-                          styles.centerPinBadge,
-                          isSelected ? styles.centerPinBadgeSelected : null,
-                        ]}>
+                      <View style={styles.centerPinBadge}>
                         <MaterialCommunityIcons
-                          color={isSelected ? Colors.brand.onPrimary : '#9333EA'}
+                          color="#9333EA"
                           name="map-marker-outline"
                           size={18}
                         />
+                      </View>
+
+                      <View style={styles.centerHeaderCopy}>
+                        <Text style={styles.centerName}>{center.name}</Text>
                       </View>
                     </View>
                   </HapticPressable>
 
                   <View style={styles.centerMetaList}>
                     <View style={styles.centerMetaRow}>
-                      <MaterialCommunityIcons color="#667387" name="map-marker-outline" size={16} />
+                      <MaterialCommunityIcons
+                        color={Colors.brand.primaryDark}
+                        name="map-marker-distance"
+                        size={16}
+                      />
+                      <Text style={styles.centerDistanceText}>
+                        {formatDistance(center.distanceMeters)}
+                        <Text style={styles.centerDistanceMeta}>
+                          {userLocation ? ' from you' : ' from map center'}
+                        </Text>
+                      </Text>
+                    </View>
+
+                    <View style={styles.centerMetaRow}>
+                      <MaterialCommunityIcons
+                        color={Colors.brand.primaryDark}
+                        name="map-marker-outline"
+                        size={16}
+                      />
                       <Text style={styles.centerMetaText}>{center.address ?? 'Address not listed'}</Text>
                     </View>
 
                     <View style={styles.centerMetaRow}>
-                      <MaterialCommunityIcons color="#667387" name="clock-outline" size={16} />
+                      <MaterialCommunityIcons
+                        color={Colors.brand.primaryDark}
+                        name="clock-outline"
+                        size={16}
+                      />
                       <Text
                         style={[
                           styles.centerMetaText,
@@ -550,7 +532,11 @@ export default function ExploreScreen() {
                     </View>
 
                     <View style={styles.centerMetaRow}>
-                      <MaterialCommunityIcons color="#667387" name="phone-outline" size={16} />
+                      <MaterialCommunityIcons
+                        color={Colors.brand.primaryDark}
+                        name="phone-outline"
+                        size={16}
+                      />
                       <Text style={styles.centerMetaText}>
                         {center.phone ?? 'Phone number not listed'}
                       </Text>
@@ -559,9 +545,11 @@ export default function ExploreScreen() {
 
                   <View style={styles.centerDivider} />
 
-                  <Text style={styles.acceptsLabel}>{detailsLabel}</Text>
+                  <View style={styles.materialsHeader}>
+                    <Text style={styles.acceptsLabel}>Accepts</Text>
+                  </View>
                   <View style={styles.acceptsWrap}>
-                    {detailChips.map((material) => (
+                    {acceptedMaterialChips.map((material) => (
                       <View key={`${center.id}-${material}`} style={styles.acceptsChip}>
                         <Text style={styles.acceptsChipText}>{material}</Text>
                       </View>
@@ -619,8 +607,8 @@ export default function ExploreScreen() {
 
             {centers.length > 0 ? (
               <Text style={styles.dataNote}>
-                Live center data uses Google Places when configured, with OpenStreetMap as the
-                fallback for mapped recycling locations.
+                Live center data uses Google Places Text Search and Place Details for address,
+                distance, hours, and phone numbers when available.
               </Text>
             ) : null}
           </View>
@@ -637,19 +625,6 @@ function createRegion(coordinate: MapCoordinate, delta: number) {
     longitude: coordinate.longitude,
     longitudeDelta: delta,
   } satisfies MapRegion;
-}
-
-function deriveSearchRadiusMeters(region: MapRegion) {
-  const latitudeHalfSpanKilometers = (region.latitudeDelta * 111.32) / 2;
-  const longitudeHalfSpanKilometers =
-    (region.longitudeDelta * 111.32 * Math.cos((region.latitude * Math.PI) / 180)) / 2;
-  const diagonalRadiusMeters =
-    Math.sqrt(
-      latitudeHalfSpanKilometers * latitudeHalfSpanKilometers +
-        longitudeHalfSpanKilometers * longitudeHalfSpanKilometers
-    ) * 1000;
-
-  return clamp(diagonalRadiusMeters, minSearchRadiusMeters, maxSearchRadiusMeters);
 }
 
 function hasSearchAreaChanged(currentRegion: MapRegion, previousRegion: MapRegion) {
@@ -684,10 +659,6 @@ function formatDistance(distanceMeters: number) {
   return `${(distanceMeters / 1000).toFixed(distanceMeters >= 10000 ? 0 : 1)} km`;
 }
 
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.min(Math.max(value, minimum), maximum);
-}
-
 const styles = StyleSheet.create({
   acceptsChip: {
     borderRadius: Radii.pill,
@@ -707,7 +678,7 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.caption,
     lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
-    marginBottom: Spacing.sm,
+    fontWeight: FontWeights.semibold,
   },
   acceptsWrap: {
     flexDirection: 'row',
@@ -766,12 +737,6 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.caption,
     fontFamily: Fonts.sans,
   },
-  centerDistanceRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
   centerDistanceText: {
     color: Colors.brand.primaryDark,
     fontSize: FontSizes.sm,
@@ -786,7 +751,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   centerHeader: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: Spacing.md,
     justifyContent: 'space-between',
@@ -825,13 +790,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
   },
-  centerCategoryText: {
-    color: Colors.brand.primaryDark,
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.medium,
-  },
   centerPinBadge: {
     width: 38,
     height: 38,
@@ -839,28 +797,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5EDFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  centerPinBadgeSelected: {
-    backgroundColor: Colors.brand.primaryDark,
-  },
-  centerRatingRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-  },
-  centerRatingText: {
-    color: Colors.brand.text,
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
-    fontFamily: Fonts.sans,
-    fontWeight: FontWeights.semibold,
-  },
-  centerReviewText: {
-    color: '#7A8795',
-    fontSize: FontSizes.caption,
-    lineHeight: LineHeights.caption,
-    fontFamily: Fonts.sans,
   },
   dataNote: {
     color: '#7A8795',
@@ -971,6 +907,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
   },
+  materialsHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
   retryButton: {
     minHeight: 48,
     borderRadius: 16,
@@ -1063,6 +1006,9 @@ const styles = StyleSheet.create({
   },
   searchAreaButtonPressed: {
     opacity: 0.92,
+  },
+  searchAreaButtonDisabled: {
+    opacity: 0.78,
   },
   searchAreaButtonText: {
     color: Colors.brand.onPrimary,
