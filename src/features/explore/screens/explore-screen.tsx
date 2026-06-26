@@ -61,11 +61,6 @@ export default function ExploreScreen() {
   const [isRefreshingArea, setIsRefreshingArea] = useState(false);
   const [isLocatingUser, setIsLocatingUser] = useState(false);
 
-  const selectedCenter =
-    centers.find((center) => center.id === selectedCenterId) ?? centers[0] ?? null;
-  const orderedCenters = selectedCenter
-    ? [selectedCenter, ...centers.filter((center) => center.id !== selectedCenter.id)]
-    : centers;
   const isSearchAreaDirty = hasSearchAreaChanged(mapRegion, lastSearchRegion);
   const isSearchingMapArea = isRefreshingArea || (isLoadingCenters && centers.length === 0);
   const resultCountLabel =
@@ -458,7 +453,7 @@ export default function ExploreScreen() {
               </View>
             ) : null}
 
-            {orderedCenters.map((center) => {
+            {centers.map((center) => {
               const isSelected = center.id === selectedCenterId;
               const acceptedMaterialChips = center.acceptedMaterials.length
                 ? center.acceptedMaterials
