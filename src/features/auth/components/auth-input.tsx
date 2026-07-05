@@ -73,7 +73,7 @@ export function AuthInput({
             onPress={() => setIsPasswordVisible((value) => !value)}
             style={styles.trailingButton}>
             <MaterialCommunityIcons
-              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+              name={isPasswordVisible ? 'eye-outline' : 'eye-off-outline'}
               size={IconSizes.lg}
               color={Colors.brand.inputIcon}
             />
