@@ -1,5 +1,8 @@
+import { FirebaseError } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
@@ -52,6 +55,20 @@ export async function loginUser(email: string, password: string) {
   );
 
   return userCredential.user;
+}
+
+export async function sendResetPasswordEmail(email: string) {
+  const normalizedEmail = email.trim();
+  const signInMethods = await fetchSignInMethodsForEmail(auth, normalizedEmail);
+
+  if (!signInMethods.includes("password")) {
+    throw new FirebaseError(
+      "auth/user-not-found",
+      "No account was found for that email address."
+    );
+  }
+
+  await sendPasswordResetEmail(auth, normalizedEmail);
 }
 
 export async function logoutUser() {

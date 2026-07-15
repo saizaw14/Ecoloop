@@ -67,6 +67,7 @@ export function AuthInput({
 
         {secureTextEntry ? (
           <Pressable
+            accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
             accessibilityRole="button"
             disabled={!editable}
             hitSlop={10}

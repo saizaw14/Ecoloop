@@ -82,3 +82,40 @@ export function getSignupAuthError(error: unknown): AuthFieldError {
       };
   }
 }
+
+export function getPasswordResetAuthError(error: unknown): AuthFieldError {
+  if (!(error instanceof FirebaseError)) {
+    return {
+      field: 'email',
+      message: 'Something went wrong. Please try again.',
+    };
+  }
+
+  switch (error.code) {
+    case 'auth/invalid-email':
+      return {
+        field: 'email',
+        message: 'Please enter a valid email address.',
+      };
+    case 'auth/user-not-found':
+      return {
+        field: 'email',
+        message: 'No account was found for that email address.',
+      };
+    case 'auth/too-many-requests':
+      return {
+        field: 'email',
+        message: 'Too many reset attempts. Please wait a moment and try again.',
+      };
+    case 'auth/network-request-failed':
+      return {
+        field: 'email',
+        message: 'Network error. Please check your internet connection and try again.',
+      };
+    default:
+      return {
+        field: 'email',
+        message: 'Could not send the reset email. Please try again.',
+      };
+  }
+}

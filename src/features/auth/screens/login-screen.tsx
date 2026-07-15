@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppImages } from '@/assets/images';
 import { HapticPressable } from '@/components/ui/haptic-pressable';
 import { AuthInput } from '@/features/auth/components/auth-input';
-import { AuthScreenShell } from '@/features/auth/components/auth-screen-shell';
-import { AuthSocialButton } from '@/features/auth/components/auth-social-button';
-import { getLoginAuthError } from '@/features/auth/utils/get-auth-error-message';
-import { isGmailAddress } from '@/features/auth/utils/is-gmail-address';
-import { loginUser } from '@/services/authService';
+import { ForgotPasswordSheet } from '@/features/auth/components/forgot-password-sheet';
+import {
+  getLoginAuthError,
+  getPasswordResetAuthError,
+} from '@/features/auth/utils/get-auth-error-message';
+import { loginUser, sendResetPasswordEmail } from '@/services/authService';
+import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 import {
   Colors,
   Fonts,
@@ -22,16 +37,24 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotPasswordSheetVisible, setIsForgotPasswordSheetVisible] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordError, setForgotPasswordError] = useState<string | undefined>();
+  const [sentResetEmail, setSentResetEmail] = useState<string | undefined>();
+  const [hasSentResetEmail, setHasSentResetEmail] = useState(false);
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
   }>({});
+  const isBusy = isLoading || isResettingPassword;
 
-  function showComingSoonAlert(featureName: string) {
-    Alert.alert(`${featureName} Unavailable`, `Please use email and password for now.`);
+  function handleDismissKeyboard() {
+    Keyboard.dismiss();
   }
 
   function handleEmailChange(value: string) {
@@ -42,14 +65,54 @@ export default function LoginScreen() {
     setPassword(value);
   }
 
+  function getEmailValidationError(value: string) {
+    const normalizedEmail = value.trim();
+
+    if (!normalizedEmail) {
+      return 'Please enter your email address.';
+    }
+
+    if (!isValidEmailAddress(normalizedEmail)) {
+      return 'Please enter a valid email address.';
+    }
+
+    return undefined;
+  }
+
+  function openForgotPasswordSheet() {
+    setForgotPasswordEmail(email.trim());
+    setForgotPasswordError(undefined);
+    setSentResetEmail(undefined);
+    setHasSentResetEmail(false);
+    setIsForgotPasswordSheetVisible(true);
+  }
+
+  function closeForgotPasswordSheet() {
+    if (isResettingPassword) {
+      return;
+    }
+
+    setIsForgotPasswordSheetVisible(false);
+    setForgotPasswordError(undefined);
+    setSentResetEmail(undefined);
+    setHasSentResetEmail(false);
+  }
+
+  function handleForgotPasswordEmailChange(value: string) {
+    setForgotPasswordEmail(value);
+
+    if (forgotPasswordError) {
+      setForgotPasswordError(undefined);
+    }
+  }
+
   async function handleLogin() {
     const nextErrors: typeof errors = {};
     const normalizedEmail = email.trim();
+    const emailError = getEmailValidationError(normalizedEmail);
 
-    if (!normalizedEmail) {
-      nextErrors.email = 'Please enter your email address.';
-    } else if (!isGmailAddress(normalizedEmail)) {
-      nextErrors.email = 'Please enter a valid Gmail address ending with @gmail.com.';
+    if (emailError) {
+      nextErrors.email = emailError;
     }
 
     if (!password) {
@@ -77,93 +140,203 @@ export default function LoginScreen() {
     }
   }
 
+  async function submitForgotPasswordReset(emailValue: string) {
+    const normalizedEmail = emailValue.trim();
+    const emailError = getEmailValidationError(normalizedEmail);
+
+    if (emailError) {
+      setForgotPasswordError(emailError);
+      setHasSentResetEmail(false);
+      return;
+    }
+
+    setIsResettingPassword(true);
+    setForgotPasswordError(undefined);
+
+    try {
+      await sendResetPasswordEmail(normalizedEmail);
+      setSentResetEmail(normalizedEmail);
+      setHasSentResetEmail(true);
+      setEmail(normalizedEmail);
+    } catch (error) {
+      const authError = getPasswordResetAuthError(error);
+      setForgotPasswordError(authError.message);
+      setHasSentResetEmail(false);
+    } finally {
+      setIsResettingPassword(false);
+    }
+  }
+
   return (
-    <AuthScreenShell
-      subtitle="Continue your eco-friendly journey"
-      title="Welcome Back!"
-      footer={
-        <View style={styles.footerTextRow}>
-          <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-          <HapticPressable
-            accessibilityRole="button"
-            disabled={isLoading}
-            hapticType="selection"
-            onPress={() => router.push('/signup')}>
-            <Text style={styles.footerLink}>Sign Up</Text>
-          </HapticPressable>
-        </View>
-      }>
-      <View style={styles.form}>
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Email</Text>
-          <AuthInput
-            editable={!isLoading}
-            errorMessage={errors.email}
-            iconName="email-outline"
-            keyboardType="email-address"
-            onChangeText={handleEmailChange}
-            placeholder="your.email@gmail.com"
-            value={email}
-          />
-        </View>
+    <>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar style="dark" />
+        <Pressable
+          accessible={false}
+          onPress={handleDismissKeyboard}
+          style={styles.screen}>
+          <KeyboardAvoidingView
+            pointerEvents="box-none"
+            style={styles.keyboardContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.heroSection}>
+              <Image
+                source={AppImages.loginRecyclingHero}
+                contentFit="cover"
+                style={styles.heroImage}
+              />
+            </View>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Password</Text>
-          <AuthInput
-            editable={!isLoading}
-            errorMessage={errors.password}
-            iconName="lock-outline"
-            onChangeText={handlePasswordChange}
-            placeholder="Enter your password"
-            secureTextEntry
-            value={password}
-          />
-        </View>
+            <View
+              style={[
+                styles.bottomSheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, Spacing.lg) + Spacing.sm,
+                },
+              ]}>
+              <View style={styles.headerBlock}>
+                <Text style={styles.title}>Welcome Back!</Text>
+                <Text style={styles.subtitle}>Continue your eco-friendly journey</Text>
+              </View>
 
-        <HapticPressable
-          accessibilityRole="button"
-          disabled={isLoading}
-          hapticType="selection"
-          onPress={() => showComingSoonAlert('Forgot Password')}
-          style={styles.forgotWrap}>
-          <Text style={styles.forgotText}>Forgot Password?</Text>
-        </HapticPressable>
+              <View style={styles.form}>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <AuthInput
+                    editable={!isBusy}
+                    errorMessage={errors.email}
+                    iconName="email-outline"
+                    keyboardType="email-address"
+                    onChangeText={handleEmailChange}
+                    placeholder="your.email@example.com"
+                    value={email}
+                  />
+                </View>
 
-        <HapticPressable
-          accessibilityRole="button"
-          disabled={isLoading}
-          hapticType="medium"
-          onPress={handleLogin}
-          style={[styles.primaryButton, isLoading && styles.disabledButton]}>
-          <View style={styles.buttonContent}>
-            {isLoading ? (
-              <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
-            ) : null}
-            <Text style={styles.primaryButtonText}>{isLoading ? 'Logging In...' : 'Log In'}</Text>
-          </View>
-        </HapticPressable>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Password</Text>
+                  <AuthInput
+                    editable={!isBusy}
+                    errorMessage={errors.password}
+                    iconName="lock-outline"
+                    onChangeText={handlePasswordChange}
+                    placeholder="Enter your password"
+                    secureTextEntry
+                    value={password}
+                  />
+                </View>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
+                <HapticPressable
+                  accessibilityRole="button"
+                  disabled={isBusy}
+                  hapticType="selection"
+                  onPress={openForgotPasswordSheet}
+                  style={styles.forgotWrap}>
+                  <Text style={styles.forgotText}>Forgot Password?</Text>
+                </HapticPressable>
 
-        <View style={styles.socialStack}>
-          <AuthSocialButton
-            iconName="google"
-            label="Continue with Google"
-            onPress={() => showComingSoonAlert('Google Sign-In')}
-          />
-        </View>
-      </View>
-    </AuthScreenShell>
+                <HapticPressable
+                  accessibilityRole="button"
+                  disabled={isBusy}
+                  hapticType="medium"
+                  onPress={handleLogin}
+                  style={[styles.primaryButton, isBusy && styles.disabledButton]}>
+                  <View style={styles.buttonContent}>
+                    {isLoading ? (
+                      <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+                    ) : null}
+                    <Text style={styles.primaryButtonText}>
+                      {isLoading ? 'Logging In...' : 'Log In'}
+                    </Text>
+                  </View>
+                </HapticPressable>
+              </View>
+
+              <View style={styles.footerTextRow}>
+                <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+                <HapticPressable
+                  accessibilityRole="button"
+                  disabled={isBusy}
+                  hapticType="selection"
+                  onPress={() => router.push('/signup')}>
+                  <Text style={styles.footerLink}>Sign Up</Text>
+                </HapticPressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </SafeAreaView>
+
+      <ForgotPasswordSheet
+        email={forgotPasswordEmail}
+        errorMessage={forgotPasswordError}
+        isSubmitting={isResettingPassword}
+        isSuccess={hasSentResetEmail}
+        sentEmail={sentResetEmail}
+        visible={isForgotPasswordSheetVisible}
+        onChangeEmail={handleForgotPasswordEmailChange}
+        onClose={closeForgotPasswordSheet}
+        onResend={() => {
+          void submitForgotPasswordReset(sentResetEmail ?? forgotPasswordEmail);
+        }}
+        onSubmit={() => {
+          void submitForgotPasswordReset(forgotPasswordEmail);
+        }}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#E8F5EE',
+  },
+  screen: {
+    flex: 1,
+    backgroundColor: '#E8F5EE',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  heroSection: {
+    flex: 1,
+    minHeight: 280,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  bottomSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: Colors.brand.surface,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: '#E3EEE8',
+  },
+  headerBlock: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.xl,
+  },
   form: {
     gap: Spacing.md,
+  },
+  title: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.hero,
+    lineHeight: LineHeights.hero,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.semibold,
+  },
+  subtitle: {
+    color: '#607284',
+    fontSize: FontSizes.sm,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
   },
   fieldGroup: {
     gap: Spacing.sm,
@@ -210,30 +383,11 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.semibold,
   },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginVertical: Spacing.xs,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.brand.inputBorder,
-  },
-  dividerText: {
-    color: Colors.brand.body,
-    fontSize: FontSizes.sm,
-    lineHeight: LineHeights.sm,
-    fontFamily: Fonts.sans,
-  },
-  socialStack: {
-    gap: Spacing.sm,
-  },
   footerTextRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: Spacing.xl,
   },
   footerText: {
     color: Colors.brand.body,

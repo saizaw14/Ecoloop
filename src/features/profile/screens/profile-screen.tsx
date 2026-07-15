@@ -38,6 +38,7 @@ import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 import { calculateWasteEcoPoints } from '@/features/scan/services/waste-sorting-rewards';
 import { auth, db } from '@/firebase/firebaseConfig';
 import { logoutUser } from '@/services/authService';
+import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 
 const POINTS_PER_LEVEL = 50;
 const CO2_KG_PER_TREE = 0.8;
@@ -93,10 +94,6 @@ function formatWeightCompact(value: number) {
 
 function formatWeightReadable(value: number) {
   return `${Math.max(0, value).toFixed(2)} kg`;
-}
-
-function isLikelyEmailAddress(value: string) {
-  return /\S+@\S+\.\S+/.test(value.trim());
 }
 
 export default function ProfileScreen() {
@@ -321,7 +318,7 @@ export default function ProfileScreen() {
       return false;
     }
 
-    if (!isLikelyEmailAddress(trimmedNewEmail)) {
+    if (!isValidEmailAddress(trimmedNewEmail)) {
       Alert.alert('Invalid email', 'Please enter a valid email address.');
       return false;
     }
