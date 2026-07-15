@@ -67,13 +67,14 @@ export function AuthInput({
 
         {secureTextEntry ? (
           <Pressable
+            accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}
             accessibilityRole="button"
             disabled={!editable}
             hitSlop={10}
             onPress={() => setIsPasswordVisible((value) => !value)}
             style={styles.trailingButton}>
             <MaterialCommunityIcons
-              name={isPasswordVisible ? 'eye-outline' : 'eye-off-outline'}
+              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
               size={IconSizes.lg}
               color={Colors.brand.inputIcon}
             />

@@ -272,7 +272,7 @@ export function ForgotPasswordSheet({
                     iconName="email-outline"
                     keyboardType="email-address"
                     onChangeText={onChangeEmail}
-                    placeholder="your.email@gmail.com"
+                    placeholder="your.email@example.com"
                     value={email}
                   />
                 </View>

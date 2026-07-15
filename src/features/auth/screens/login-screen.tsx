@@ -1,17 +1,29 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { StatusBar } from 'expo-status-bar';
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppImages } from '@/assets/images';
 import { HapticPressable } from '@/components/ui/haptic-pressable';
 import { AuthInput } from '@/features/auth/components/auth-input';
 import { ForgotPasswordSheet } from '@/features/auth/components/forgot-password-sheet';
-import { AuthScreenShell } from '@/features/auth/components/auth-screen-shell';
 import {
   getLoginAuthError,
   getPasswordResetAuthError,
 } from '@/features/auth/utils/get-auth-error-message';
-import { isGmailAddress } from '@/features/auth/utils/is-gmail-address';
 import { loginUser, sendResetPasswordEmail } from '@/services/authService';
+import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 import {
   Colors,
   Fonts,
@@ -25,6 +37,7 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +52,10 @@ export default function LoginScreen() {
     password?: string;
   }>({});
   const isBusy = isLoading || isResettingPassword;
+
+  function handleDismissKeyboard() {
+    Keyboard.dismiss();
+  }
 
   function handleEmailChange(value: string) {
     setEmail(value);
@@ -55,8 +72,8 @@ export default function LoginScreen() {
       return 'Please enter your email address.';
     }
 
-    if (!isGmailAddress(normalizedEmail)) {
-      return 'Please enter a valid Gmail address ending with @gmail.com.';
+    if (!isValidEmailAddress(normalizedEmail)) {
+      return 'Please enter a valid email address.';
     }
 
     return undefined;
@@ -152,74 +169,103 @@ export default function LoginScreen() {
 
   return (
     <>
-      <AuthScreenShell
-        subtitle="Continue your eco-friendly journey"
-        title="Welcome Back!"
-        footer={
-          <View style={styles.footerTextRow}>
-            <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-            <HapticPressable
-              accessibilityRole="button"
-              disabled={isBusy}
-              hapticType="selection"
-              onPress={() => router.push('/signup')}>
-              <Text style={styles.footerLink}>Sign Up</Text>
-            </HapticPressable>
-          </View>
-        }>
-        <View style={styles.form}>
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Email</Text>
-            <AuthInput
-              editable={!isBusy}
-              errorMessage={errors.email}
-              iconName="email-outline"
-              keyboardType="email-address"
-              onChangeText={handleEmailChange}
-              placeholder="your.email@gmail.com"
-              value={email}
-            />
-          </View>
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Password</Text>
-            <AuthInput
-              editable={!isBusy}
-              errorMessage={errors.password}
-              iconName="lock-outline"
-              onChangeText={handlePasswordChange}
-              placeholder="Enter your password"
-              secureTextEntry
-              value={password}
-            />
-          </View>
-
-          <HapticPressable
-            accessibilityRole="button"
-            disabled={isBusy}
-            hapticType="selection"
-            onPress={openForgotPasswordSheet}
-            style={styles.forgotWrap}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </HapticPressable>
-
-          <HapticPressable
-            accessibilityRole="button"
-            disabled={isBusy}
-            hapticType="medium"
-            onPress={handleLogin}
-            style={[styles.primaryButton, isBusy && styles.disabledButton]}>
-            <View style={styles.buttonContent}>
-              {isLoading ? (
-                <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
-              ) : null}
-              <Text style={styles.primaryButtonText}>
-                {isLoading ? 'Logging In...' : 'Log In'}
-              </Text>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar style="dark" />
+        <Pressable
+          accessible={false}
+          onPress={handleDismissKeyboard}
+          style={styles.screen}>
+          <KeyboardAvoidingView
+            pointerEvents="box-none"
+            style={styles.keyboardContainer}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={styles.heroSection}>
+              <Image
+                source={AppImages.loginRecyclingHero}
+                contentFit="cover"
+                style={styles.heroImage}
+              />
             </View>
-          </HapticPressable>
-        </View>
-      </AuthScreenShell>
+
+            <View
+              style={[
+                styles.bottomSheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, Spacing.lg) + Spacing.sm,
+                },
+              ]}>
+              <View style={styles.headerBlock}>
+                <Text style={styles.title}>Welcome Back!</Text>
+                <Text style={styles.subtitle}>Continue your eco-friendly journey</Text>
+              </View>
+
+              <View style={styles.form}>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <AuthInput
+                    editable={!isBusy}
+                    errorMessage={errors.email}
+                    iconName="email-outline"
+                    keyboardType="email-address"
+                    onChangeText={handleEmailChange}
+                    placeholder="your.email@example.com"
+                    value={email}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Password</Text>
+                  <AuthInput
+                    editable={!isBusy}
+                    errorMessage={errors.password}
+                    iconName="lock-outline"
+                    onChangeText={handlePasswordChange}
+                    placeholder="Enter your password"
+                    secureTextEntry
+                    value={password}
+                  />
+                </View>
+
+                <HapticPressable
+                  accessibilityRole="button"
+                  disabled={isBusy}
+                  hapticType="selection"
+                  onPress={openForgotPasswordSheet}
+                  style={styles.forgotWrap}>
+                  <Text style={styles.forgotText}>Forgot Password?</Text>
+                </HapticPressable>
+
+                <HapticPressable
+                  accessibilityRole="button"
+                  disabled={isBusy}
+                  hapticType="medium"
+                  onPress={handleLogin}
+                  style={[styles.primaryButton, isBusy && styles.disabledButton]}>
+                  <View style={styles.buttonContent}>
+                    {isLoading ? (
+                      <ActivityIndicator color={Colors.brand.onPrimary} size="small" />
+                    ) : null}
+                    <Text style={styles.primaryButtonText}>
+                      {isLoading ? 'Logging In...' : 'Log In'}
+                    </Text>
+                  </View>
+                </HapticPressable>
+              </View>
+
+              <View style={styles.footerTextRow}>
+                <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+                <HapticPressable
+                  accessibilityRole="button"
+                  disabled={isBusy}
+                  hapticType="selection"
+                  onPress={() => router.push('/signup')}>
+                  <Text style={styles.footerLink}>Sign Up</Text>
+                </HapticPressable>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </SafeAreaView>
 
       <ForgotPasswordSheet
         email={forgotPasswordEmail}
@@ -242,8 +288,55 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#E8F5EE',
+  },
+  screen: {
+    flex: 1,
+    backgroundColor: '#E8F5EE',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  heroSection: {
+    flex: 1,
+    minHeight: 280,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  bottomSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: Colors.brand.surface,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: '#E3EEE8',
+  },
+  headerBlock: {
+    gap: Spacing.xs,
+    marginBottom: Spacing.xl,
+  },
   form: {
     gap: Spacing.md,
+  },
+  title: {
+    color: Colors.brand.text,
+    fontSize: FontSizes.hero,
+    lineHeight: LineHeights.hero,
+    fontFamily: Fonts.sans,
+    fontWeight: FontWeights.semibold,
+  },
+  subtitle: {
+    color: '#607284',
+    fontSize: FontSizes.sm,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
   },
   fieldGroup: {
     gap: Spacing.sm,
@@ -294,6 +387,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: Spacing.xl,
   },
   footerText: {
     color: Colors.brand.body,

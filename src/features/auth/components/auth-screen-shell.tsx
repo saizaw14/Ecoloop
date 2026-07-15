@@ -1,12 +1,12 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 import { Image } from 'expo-image';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,27 +28,27 @@ type AuthScreenShellProps = PropsWithChildren<{
   subtitle: string;
   title: string;
   footer?: ReactNode;
+  headerVisual?: ReactNode;
 }>;
 
 export function AuthScreenShell({
   children,
   footer,
+  headerVisual,
   subtitle,
   title,
 }: AuthScreenShellProps) {
   function handleDismissKeyboard() {
-    TextInput.State.blurTextInput(TextInput.State.currentlyFocusedInput());
+    Keyboard.dismiss();
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <View style={styles.contentContainer}>
-        <Pressable
-          accessible={false}
-          onPressIn={handleDismissKeyboard}
-          style={styles.dismissLayer}
-        />
+      <Pressable
+        accessible={false}
+        onPress={handleDismissKeyboard}
+        style={styles.contentContainer}>
         <KeyboardAvoidingView
           pointerEvents="box-none"
           style={styles.keyboardContainer}
@@ -56,13 +56,17 @@ export function AuthScreenShell({
           <View pointerEvents="box-none" style={styles.screenStack}>
             <View pointerEvents="box-none" style={styles.mainContent}>
               <View pointerEvents="none" style={styles.headerBlock}>
-                <View style={styles.logoWrap}>
-                  <Image
-                    source={AppImages.ecoloopLogo}
-                    contentFit="contain"
-                    style={styles.logo}
-                  />
-                </View>
+                {headerVisual ? (
+                  <View style={styles.headerVisualWrap}>{headerVisual}</View>
+                ) : (
+                  <View style={styles.logoWrap}>
+                    <Image
+                      source={AppImages.ecoloopLogo}
+                      contentFit="contain"
+                      style={styles.logo}
+                    />
+                  </View>
+                )}
 
                 <View style={styles.textBlock}>
                   <Text style={styles.title}>{title}</Text>
@@ -77,7 +81,7 @@ export function AuthScreenShell({
             {footer ? <View style={styles.footerSlot}>{footer}</View> : null}
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -96,9 +100,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.xl,
   },
-  dismissLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
   screenStack: {
     flex: 1,
     minHeight: 0,
@@ -114,6 +115,11 @@ const styles = StyleSheet.create({
   },
   logoWrap: {
     alignItems: 'center',
+  },
+  headerVisualWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
   },
   logo: {
     width: 84,
