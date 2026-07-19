@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -22,6 +22,7 @@ import {
   getLoginAuthError,
   getPasswordResetAuthError,
 } from '@/features/auth/utils/get-auth-error-message';
+import { useAuthSession } from '@/hooks/use-auth-session';
 import { loginUser, sendResetPasswordEmail } from '@/services/authService';
 import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 import {
@@ -37,6 +38,7 @@ import {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { isReady, user } = useAuthSession();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +54,10 @@ export default function LoginScreen() {
     password?: string;
   }>({});
   const isBusy = isLoading || isResettingPassword;
+
+  if (isReady && user) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   function handleDismissKeyboard() {
     Keyboard.dismiss();

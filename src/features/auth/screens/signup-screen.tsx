@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -7,6 +7,7 @@ import { HapticPressable } from '@/components/ui/haptic-pressable';
 import { AuthInput } from '@/features/auth/components/auth-input';
 import { AuthScreenShell } from '@/features/auth/components/auth-screen-shell';
 import { getSignupAuthError } from '@/features/auth/utils/get-auth-error-message';
+import { useAuthSession } from '@/hooks/use-auth-session';
 import { registerUser } from '@/services/authService';
 import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 import {
@@ -22,6 +23,7 @@ import {
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { isReady, user } = useAuthSession();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,6 +37,10 @@ export default function SignupScreen() {
     confirmPassword?: string;
     terms?: string;
   }>({});
+
+  if (isReady && user) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   function handleNameChange(value: string) {
     setFullName(value);

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, type Href } from 'expo-router';
-import { onAuthStateChanged } from 'firebase/auth';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -21,7 +20,7 @@ import {
   getEcoTipOfTheDay,
   type EcoTip,
 } from '@/features/tips/data/eco-tips-content';
-import { auth } from '@/firebase/firebaseConfig';
+import { useAuthSession } from '@/hooks/use-auth-session';
 import {
   saveTipForUser,
   subscribeToSavedTipIds,
@@ -30,30 +29,30 @@ import {
 
 export default function TipsScreen() {
   const router = useRouter();
-  const [userId, setUserId] = useState<string | null>(auth.currentUser?.uid ?? null);
+  const { user } = useAuthSession();
+  const userId = user?.uid ?? null;
   const [savedTipIds, setSavedTipIds] = useState<number[]>([]);
   const [pendingTipId, setPendingTipId] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [tipOfTheDay, setTipOfTheDay] = useState<EcoTip>(() => getEcoTipOfTheDay());
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUserId(user?.uid ?? null);
-
-      if (!user) {
-        setSavedTipIds([]);
-      }
-    });
-
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
     if (!userId) {
+      setSavedTipIds([]);
+      setSaveError(null);
       return;
     }
 
-    return subscribeToSavedTipIds(userId, setSavedTipIds);
+    return subscribeToSavedTipIds(
+      userId,
+      (nextSavedTipIds) => {
+        setSavedTipIds(nextSavedTipIds);
+        setSaveError(null);
+      },
+      () => {
+        setSaveError('We could not load your saved tips right now. Please try again.');
+      }
+    );
   }, [userId]);
 
   useEffect(() => {

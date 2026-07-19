@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { onAuthStateChanged, updateProfile as updateAuthProfile } from 'firebase/auth';
+import { updateProfile as updateAuthProfile } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   ActivityIndicator,
@@ -37,6 +37,7 @@ import {
 import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 import { calculateWasteEcoPoints } from '@/features/scan/services/waste-sorting-rewards';
 import { auth, db } from '@/firebase/firebaseConfig';
+import { useAuthSession } from '@/hooks/use-auth-session';
 import { logoutUser } from '@/services/authService';
 import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 
@@ -114,32 +115,31 @@ export default function ProfileScreen() {
     usageInsights: true,
   });
   const { categoryScanCounts, totalCO2Saved, totalEcoPoints, totalScans } = useUserWasteStats();
+  const { isReady, user } = useAuthSession();
 
   useEffect(() => {
     let isActive = true;
-    let activeUserId: string | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      activeUserId = user?.uid ?? null;
+    if (!isReady) {
+      return;
+    }
 
-      if (!isActive) {
-        return;
-      }
+    if (!user) {
+      setProfile(defaultProfileIdentity);
+      return;
+    }
 
-      if (!user) {
-        setProfile(defaultProfileIdentity);
-        return;
-      }
+    const activeUserId = user.uid;
+    const fallbackName = getFallbackName(user.email, user.displayName);
+    const fallbackEmail = user.email?.trim() || 'No email on file';
 
-      const fallbackName = getFallbackName(user.email, user.displayName);
-      const fallbackEmail = user.email?.trim() || 'No email on file';
+    setProfile({
+      displayName: fallbackName,
+      email: fallbackEmail,
+      userId: user.uid,
+    });
 
-      setProfile({
-        displayName: fallbackName,
-        email: fallbackEmail,
-        userId: user.uid,
-      });
-
+    void (async () => {
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
 
@@ -167,13 +167,12 @@ export default function ProfileScreen() {
           userId: user.uid,
         });
       }
-    });
+    })();
 
     return () => {
       isActive = false;
-      unsubscribeAuth();
     };
-  }, []);
+  }, [isReady, user?.displayName, user?.email, user?.uid]);
 
   useEffect(() => {
     setDisplayNameDraft(profile.displayName);
