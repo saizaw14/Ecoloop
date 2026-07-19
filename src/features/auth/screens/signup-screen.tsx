@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Redirect, useRouter } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { HapticPressable } from '@/components/ui/haptic-pressable';
@@ -8,7 +8,7 @@ import { AuthInput } from '@/features/auth/components/auth-input';
 import { AuthScreenShell } from '@/features/auth/components/auth-screen-shell';
 import { getSignupAuthError } from '@/features/auth/utils/get-auth-error-message';
 import { useAuthSession } from '@/hooks/use-auth-session';
-import { registerUser } from '@/services/authService';
+import { logoutUser, registerUser } from '@/services/authService';
 import { isValidEmailAddress } from '@/utils/is-valid-email-address';
 import {
   Colors,
@@ -30,6 +30,7 @@ export default function SignupScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCreatedAccount, setHasCreatedAccount] = useState(false);
   const [errors, setErrors] = useState<{
     name?: string;
     email?: string;
@@ -38,7 +39,7 @@ export default function SignupScreen() {
     terms?: string;
   }>({});
 
-  if (isReady && user) {
+  if (isReady && user && !isLoading && !hasCreatedAccount) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -129,8 +130,21 @@ export default function SignupScreen() {
         email: normalizedEmail,
         password,
       });
-      router.replace('/login');
+      setHasCreatedAccount(true);
+      await logoutUser();
+      Alert.alert(
+        'Account Created',
+        'Your EcoLoop account has been created successfully. Tap OK to log in.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/login'),
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (error) {
+      setHasCreatedAccount(false);
       const authError = getSignupAuthError(error);
       if (authError.field === 'password') {
         setErrors({ password: authError.message });
