@@ -1,6 +1,7 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet } from 'react-native';
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/navigation/haptic-tab';
@@ -10,9 +11,36 @@ import {
   Fonts,
   FontWeights,
 } from '@/constants/theme';
+import { useAuthSession } from '@/hooks/use-auth-session';
+import { syncUserDocument } from '@/services/authService';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { isReady, user } = useAuthSession();
+
+  useEffect(() => {
+    if (!isReady || !user) {
+      return;
+    }
+
+    void syncUserDocument({
+      user,
+    }).catch(() => {
+      // Keep navigation responsive even if the user document repair attempt fails.
+    });
+  }, [isReady, user?.uid]);
+
+  if (!isReady) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator color={Colors.brand.primaryDark} size="large" />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <Tabs
@@ -87,6 +115,12 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brand.authBackground,
+  },
   tabBar: {
     height: 72,
     paddingTop: 7,

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,7 +19,8 @@ import {
 import { getWasteCategories } from '@/features/categories/data/category-content';
 import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 import { calculateWasteEcoPoints } from '@/features/scan/services/waste-sorting-rewards';
-import { auth, db } from '@/firebase/firebaseConfig';
+import { db } from '@/firebase/firebaseConfig';
+import { useAuthSession } from '@/hooks/use-auth-session';
 
 const CO2_KG_PER_TREE = 0.8;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -151,58 +151,52 @@ export default function ImpactDetailsScreen() {
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [lastWasteScanAt, setLastWasteScanAt] = useState<Date | null>(null);
   const { categoryScanCounts, totalCO2Saved, totalEcoPoints, totalScans } = useUserWasteStats();
+  const { isReady, user } = useAuthSession();
 
   useEffect(() => {
     let isMounted = true;
-    let unsubscribeUserDoc: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      unsubscribeUserDoc?.();
-      unsubscribeUserDoc = null;
+    if (!isReady) {
+      return;
+    }
 
-      if (!isMounted) {
-        return;
-      }
+    if (!user) {
+      setLastSyncedAt(null);
+      setLastWasteScanAt(null);
+      return;
+    }
 
-      if (!user) {
-        setLastSyncedAt(null);
-        setLastWasteScanAt(null);
-        return;
-      }
-
-      unsubscribeUserDoc = onSnapshot(
-        doc(db, 'users', user.uid),
-        (snapshot) => {
-          if (!isMounted) {
-            return;
-          }
-
-          if (!snapshot.exists()) {
-            setLastSyncedAt(null);
-            setLastWasteScanAt(null);
-            return;
-          }
-
-          const userData = snapshot.data();
-
-          setLastSyncedAt(normalizeFirestoreDate(userData.updatedAt));
-          setLastWasteScanAt(normalizeFirestoreDate(userData.lastWasteScanAt));
-        },
-        () => {
-          if (isMounted) {
-            setLastSyncedAt(null);
-            setLastWasteScanAt(null);
-          }
+    const unsubscribeUserDoc = onSnapshot(
+      doc(db, 'users', user.uid),
+      (snapshot) => {
+        if (!isMounted) {
+          return;
         }
-      );
-    });
+
+        if (!snapshot.exists()) {
+          setLastSyncedAt(null);
+          setLastWasteScanAt(null);
+          return;
+        }
+
+        const userData = snapshot.data();
+
+        setLastSyncedAt(normalizeFirestoreDate(userData.updatedAt));
+        setLastWasteScanAt(normalizeFirestoreDate(userData.lastWasteScanAt));
+      },
+      () => {
+        if (isMounted) {
+          setLastSyncedAt(null);
+          setLastWasteScanAt(null);
+        }
+      }
+    );
 
     return () => {
       isMounted = false;
-      unsubscribeUserDoc?.();
-      unsubscribeAuth();
+      unsubscribeUserDoc();
     };
-  }, []);
+  }, [isReady, user?.uid]);
 
   const hasActivity = totalScans > 0;
   const hasTrackedWasteScan = Boolean(lastWasteScanAt);

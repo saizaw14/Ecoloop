@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, type Href } from 'expo-router';
 import type { ComponentProps } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,7 +21,8 @@ import {
 } from '@/constants/theme';
 import { categoriesOverviewIconName } from '@/features/categories/data/category-content';
 import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
-import { auth, db } from '@/firebase/firebaseConfig';
+import { db } from '@/firebase/firebaseConfig';
+import { useAuthSession } from '@/hooks/use-auth-session';
 
 type ShortcutCard = {
   accentColor: string;
@@ -75,6 +75,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const [profile, setProfile] = useState<HomeProfile>(defaultHomeProfile);
   const { totalCO2Saved, totalEcoPoints, totalScans } = useUserWasteStats();
+  const { isReady, user } = useAuthSession();
 
   useEffect(() => {
     let isActive = true;
@@ -89,18 +90,19 @@ export default function HomeScreen() {
       const emailPrefix = email?.split('@')[0]?.trim();
       return emailPrefix || defaultHomeProfile.displayName;
     }
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!isActive) {
-        return;
-      }
 
-      if (!user) {
-        setProfile(defaultHomeProfile);
-        return;
-      }
+    if (!isReady) {
+      return;
+    }
 
-      const fallbackName = getFallbackName(user.email, user.displayName);
+    if (!user) {
+      setProfile(defaultHomeProfile);
+      return;
+    }
 
+    const fallbackName = getFallbackName(user.email, user.displayName);
+
+    void (async () => {
       try {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
 
@@ -129,13 +131,12 @@ export default function HomeScreen() {
         ...defaultHomeProfile,
         displayName: fallbackName,
       });
-    });
+    })();
 
     return () => {
       isActive = false;
-      unsubscribe();
     };
-  }, []);
+  }, [isReady, user?.displayName, user?.email, user?.uid]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

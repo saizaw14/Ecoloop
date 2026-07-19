@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   FlatList,
@@ -25,11 +25,13 @@ import {
   Spacing,
 } from '@/constants/theme';
 import { onboardingSlides, type OnboardingSlide } from '@/features/onboarding/data/onboarding-slides';
+import { useAuthSession } from '@/hooks/use-auth-session';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { isReady, user } = useAuthSession();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
@@ -38,6 +40,10 @@ export default function OnboardingScreen() {
   const lastIndex = onboardingSlides.length - 1;
   const currentSlide = onboardingSlides[currentIndex];
   const showSkip = currentIndex < lastIndex;
+
+  if (isReady && user) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   function finishOnboarding() {
     router.replace('/login');
