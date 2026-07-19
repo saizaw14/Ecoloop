@@ -205,7 +205,9 @@ export function ForgotPasswordSheet({
                 </View>
 
                 <Text style={styles.successTitle}>Check your email</Text>
-                <Text style={styles.successBody}>We&apos;ve sent a password reset link to</Text>
+                <Text style={styles.successBody}>
+                  If an account exists for this email, we&apos;ve sent a password reset link to
+                </Text>
 
                 <View style={styles.emailChip}>
                   <Text numberOfLines={1} style={styles.emailChipText}>
