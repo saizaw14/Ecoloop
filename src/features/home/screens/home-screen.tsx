@@ -23,6 +23,7 @@ import { categoriesOverviewIconName } from '@/features/categories/data/category-
 import { useUserWasteStats } from '@/features/scan/hooks/use-user-waste-stats';
 import { db } from '@/firebase/firebaseConfig';
 import { useAuthSession } from '@/hooks/use-auth-session';
+import { resolveUserDisplayName } from '@/utils/resolve-user-display-name';
 
 type ShortcutCard = {
   accentColor: string;
@@ -80,17 +81,6 @@ export default function HomeScreen() {
   useEffect(() => {
     let isActive = true;
 
-    function getFallbackName(email?: string | null, displayName?: string | null) {
-      const trimmedDisplayName = displayName?.trim();
-
-      if (trimmedDisplayName) {
-        return trimmedDisplayName;
-      }
-
-      const emailPrefix = email?.split('@')[0]?.trim();
-      return emailPrefix || defaultHomeProfile.displayName;
-    }
-
     if (!isReady) {
       return;
     }
@@ -100,7 +90,11 @@ export default function HomeScreen() {
       return;
     }
 
-    const fallbackName = getFallbackName(user.email, user.displayName);
+    const fallbackName = resolveUserDisplayName({
+      candidates: [user.displayName],
+      email: user.email,
+      fallback: defaultHomeProfile.displayName,
+    });
 
     void (async () => {
       try {
@@ -115,7 +109,11 @@ export default function HomeScreen() {
           const savedName = typeof data.name === 'string' ? data.name.trim() : '';
 
           setProfile({
-            displayName: savedName || fallbackName,
+            displayName: resolveUserDisplayName({
+              candidates: [savedName, user.displayName],
+              email: user.email,
+              fallback: defaultHomeProfile.displayName,
+            }),
           });
           return;
         }

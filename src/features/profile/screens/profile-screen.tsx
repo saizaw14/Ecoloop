@@ -40,6 +40,7 @@ import { auth, db } from '@/firebase/firebaseConfig';
 import { useAuthSession } from '@/hooks/use-auth-session';
 import { logoutUser } from '@/services/authService';
 import { isValidEmailAddress } from '@/utils/is-valid-email-address';
+import { resolveUserDisplayName } from '@/utils/resolve-user-display-name';
 
 const POINTS_PER_LEVEL = 50;
 const CO2_KG_PER_TREE = 0.8;
@@ -73,17 +74,6 @@ const defaultProfileIdentity: ProfileIdentity = {
   email: 'Sign in to sync your impact',
   userId: null,
 };
-
-function getFallbackName(email?: string | null, displayName?: string | null) {
-  const trimmedDisplayName = displayName?.trim();
-
-  if (trimmedDisplayName) {
-    return trimmedDisplayName;
-  }
-
-  const emailPrefix = email?.split('@')[0]?.trim();
-  return emailPrefix || defaultProfileIdentity.displayName;
-}
 
 function formatWholeNumber(value: number) {
   return Math.max(0, Math.floor(value)).toLocaleString();
@@ -130,7 +120,11 @@ export default function ProfileScreen() {
     }
 
     const activeUserId = user.uid;
-    const fallbackName = getFallbackName(user.email, user.displayName);
+    const fallbackName = resolveUserDisplayName({
+      candidates: [user.displayName],
+      email: user.email,
+      fallback: defaultProfileIdentity.displayName,
+    });
     const fallbackEmail = user.email?.trim() || 'No email on file';
 
     setProfile({
@@ -152,7 +146,11 @@ export default function ProfileScreen() {
         const savedEmail = typeof data.email === 'string' ? data.email.trim() : '';
 
         setProfile({
-          displayName: savedName || fallbackName,
+          displayName: resolveUserDisplayName({
+            candidates: [savedName, user.displayName],
+            email: user.email,
+            fallback: defaultProfileIdentity.displayName,
+          }),
           email: savedEmail || fallbackEmail,
           userId: user.uid,
         });

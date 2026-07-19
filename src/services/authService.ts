@@ -8,6 +8,11 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../firebase/firebaseConfig";
+import {
+  DEFAULT_USER_DISPLAY_NAME,
+  isEmailDerivedDisplayName,
+  resolveUserDisplayName,
+} from "../utils/resolve-user-display-name";
 
 type RegisterInput = {
   name: string;
@@ -42,8 +47,16 @@ export async function syncUserDocument({
   user,
   userName,
 }: SyncUserDocumentInput) {
-  const normalizedUserName =
-    userName?.trim() || user.displayName?.trim() || user.email?.split("@")[0]?.trim() || "Eco Warrior";
+  const normalizedEmail = user.email?.trim() || null;
+  const normalizedUserName = resolveUserDisplayName({
+    candidates: [userName, user.displayName],
+    email: normalizedEmail,
+  });
+  const syncableUserName = resolveUserDisplayName({
+    candidates: [userName, user.displayName],
+    email: normalizedEmail,
+    fallback: "",
+  }).trim();
   const userRef = doc(db, "users", user.uid);
 
   try {
@@ -52,19 +65,24 @@ export async function syncUserDocument({
     if (snapshot.exists()) {
       const currentData = snapshot.data() as Record<string, unknown>;
       const updates: Record<string, unknown> = {};
+      const currentName = typeof currentData.name === "string" ? currentData.name.trim() : "";
 
       if (currentData.uid !== user.uid) {
         updates.uid = user.uid;
       }
 
-      const normalizedEmail = user.email?.trim() || null;
-
       if (normalizedEmail && currentData.email !== normalizedEmail) {
         updates.email = normalizedEmail;
       }
 
-      if (!currentData.name && normalizedUserName) {
-        updates.name = normalizedUserName;
+      if (
+        syncableUserName &&
+        currentName !== syncableUserName &&
+        (!currentName ||
+          currentName === DEFAULT_USER_DISPLAY_NAME ||
+          isEmailDerivedDisplayName(currentName, normalizedEmail))
+      ) {
+        updates.name = syncableUserName;
       }
 
       if (!Object.keys(updates).length) {
@@ -85,7 +103,7 @@ export async function syncUserDocument({
     : {
         uid: user.uid,
         name: normalizedUserName,
-        email: user.email?.trim() || null,
+        email: normalizedEmail,
         updatedAt: serverTimestamp(),
       };
 
