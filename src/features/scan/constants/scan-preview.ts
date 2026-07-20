@@ -1,0 +1,1 @@
+export const SCAN_PREVIEW_IMAGE_HEIGHT = 260;

@@ -31,6 +31,7 @@ import {
   clearLatestScanResult,
   getLatestScanResult,
 } from '@/features/scan/store/scan-session';
+import { SCAN_PREVIEW_IMAGE_HEIGHT } from '@/features/scan/constants/scan-preview';
 
 function formatConfidence(confidence: number) {
   return `${confidence}% confidence`;
@@ -501,7 +502,7 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     width: '100%',
-    height: 260,
+    height: SCAN_PREVIEW_IMAGE_HEIGHT,
     backgroundColor: '#DDE5EA',
   },
   previewMetaRow: {
