@@ -27,6 +27,7 @@ import {
   getWasteSortingSummary,
 } from '@/features/scan/services/waste-sorting-rewards';
 import { recordWasteScan } from '@/features/scan/services/user-waste-stats-service';
+import { uploadConfirmedWasteScan } from '@/features/scan/services/waste-scan-upload-service';
 import {
   clearLatestScanResult,
   getLatestScanResult,
@@ -132,12 +133,21 @@ export default function ScanResultScreen() {
   );
 
   async function handleSaveAndViewGuide() {
-    if (isSaving) {
+    if (isSaving || !result) {
       return;
     }
 
     try {
       setIsSaving(true);
+
+      const didUpload = await uploadConfirmedWasteScan({
+        capturedAt: result.capturedAt,
+        confirmedCategorySlug: confirmedCategory.slug,
+        imageUri: result.imageUri,
+        predictedCategorySlug: result.categorySlug,
+        predictedLabel: result.topLabel,
+        predictionConfidence: result.confidence,
+      });
 
       const didSave = await recordWasteScan({
         categorySlug: confirmedCategory.slug,
@@ -151,6 +161,13 @@ export default function ScanResultScreen() {
           'Please make sure you are signed in and try again.'
         );
         return;
+      }
+
+      if (!didUpload) {
+        Alert.alert(
+          'Scan saved',
+          'Your sorting progress was saved, but the image could not be added to the accuracy-improvement dataset.'
+        );
       }
 
       clearLatestScanResult();
@@ -407,9 +424,13 @@ export default function ScanResultScreen() {
                 pressed && !isSaving ? styles.primaryButtonPressed : null,
               ]}>
               <Text style={styles.primaryButtonText}>
-                {isSaving ? 'Saving...' : 'Save & View Guidance'}
+                {isSaving ? 'Saving...' : 'Save, Contribute & View Guidance'}
               </Text>
             </HapticPressable>
+            <Text style={styles.datasetNotice}>
+              Saving securely stores this photo and your confirmed category to help improve future
+              scans.
+            </Text>
           </View>
         </ScrollView>
       </View>
@@ -819,6 +840,14 @@ const styles = StyleSheet.create({
     lineHeight: LineHeights.body,
     fontFamily: Fonts.sans,
     fontWeight: FontWeights.medium,
+  },
+  datasetNotice: {
+    color: Colors.brand.muted,
+    fontFamily: Fonts.sans,
+    fontSize: FontSizes.caption,
+    lineHeight: LineHeights.caption,
+    marginTop: Spacing.sm,
+    textAlign: 'center',
   },
   actionDisabled: {
     opacity: 0.6,
