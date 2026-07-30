@@ -38,6 +38,7 @@ export type WasteClassificationResult = {
   capturedAt: string;
   categoryName: string;
   categorySlug: WasteCategorySlug;
+  classificationDurationMs: number;
   co2SavedKg: number;
   confidence: number;
   description: string;
@@ -255,6 +256,7 @@ export async function warmUpWasteClassifier() {
 }
 
 export async function classifyWasteImage(imageUri: string) {
+  const classificationStartedAt = Date.now();
   const [{ backend, model }, imageTensor] = await Promise.all([
     getWasteClassifier(),
     decodeImageUri(imageUri),
@@ -293,6 +295,7 @@ export async function classifyWasteImage(imageUri: string) {
       capturedAt: new Date().toISOString(),
       categoryName: category.name,
       categorySlug,
+      classificationDurationMs: Date.now() - classificationStartedAt,
       co2SavedKg: guidance.co2SavedKg,
       confidence: toConfidence(
         probabilities[wasteClassifierLabels.indexOf(topLabel)] ?? 0
