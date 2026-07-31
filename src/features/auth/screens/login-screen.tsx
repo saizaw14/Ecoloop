@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import {
   ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -36,6 +38,8 @@ import {
   Spacing,
 } from '@/constants/theme';
 
+const pendingEmailChangeStorageKey = 'ecoloop:pending-email-change';
+
 export default function LoginScreen() {
   const router = useRouter();
   const { isReady, user } = useAuthSession();
@@ -54,6 +58,33 @@ export default function LoginScreen() {
     password?: string;
   }>({});
   const isBusy = isLoading || isResettingPassword;
+
+  useEffect(() => {
+    if (!isReady || user) {
+      return;
+    }
+
+    let isActive = true;
+
+    void (async () => {
+      const updatedEmail = await AsyncStorage.getItem(pendingEmailChangeStorageKey);
+
+      if (!isActive || !updatedEmail) {
+        return;
+      }
+
+      setEmail(updatedEmail);
+      await AsyncStorage.removeItem(pendingEmailChangeStorageKey);
+      Alert.alert(
+        'Email updated',
+        'Your email has been verified. Please log in again using your new email address and your existing password.'
+      );
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [isReady, user]);
 
   if (isReady && user) {
     return <Redirect href="/(tabs)" />;
