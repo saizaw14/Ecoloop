@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { updateProfile as updateAuthProfile } from 'firebase/auth';
+import { updateEmail, updateProfile as updateAuthProfile } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   ActivityIndicator,
@@ -367,15 +367,57 @@ export default function ProfileScreen() {
     if (validatedEmailChange) {
       setIsPreparingEmailChange(true);
 
+      let savedEmail = false;
+
       try {
+        const currentUser = auth.currentUser;
+
+        if (!currentUser) {
+          Alert.alert('Sign in required', 'Please sign in to change your email address.');
+          return;
+        }
+
+        await updateEmail(currentUser, validatedEmailChange);
+        await setDoc(
+          doc(db, 'users', currentUser.uid),
+          {
+            email: validatedEmailChange,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        setProfile((currentProfile) => ({
+          ...currentProfile,
+          email: validatedEmailChange,
+        }));
+        savedEmail = true;
+
         Alert.alert(
           'Changes saved',
           savedName
-            ? 'Your username has been updated. A recent sign-in is still required before a new email can be applied.'
-            : 'A recent sign-in is still required before a new email can be applied.'
+            ? 'Your username and email address have been updated.'
+            : 'Your email address has been updated.'
         );
+      } catch (error) {
+        const errorCode =
+          typeof error === 'object' && error && 'code' in error
+            ? String(error.code)
+            : '';
+        const message =
+          errorCode === 'auth/requires-recent-login'
+            ? 'For security, please sign out and sign in again before changing your email address.'
+            : errorCode === 'auth/email-already-in-use'
+              ? 'That email address is already in use by another account.'
+              : 'We could not update your email address. Please try again.';
+
+        Alert.alert('Unable to update email', message);
       } finally {
         setIsPreparingEmailChange(false);
+      }
+
+      if (!savedEmail) {
+        return;
       }
 
       setActiveSettingsSheet(null);
