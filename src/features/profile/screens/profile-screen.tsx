@@ -1,16 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { updateEmail, updateProfile as updateAuthProfile } from 'firebase/auth';
+import { reload, updateProfile as updateAuthProfile, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -44,6 +47,7 @@ import { resolveUserDisplayName } from '@/utils/resolve-user-display-name';
 
 const POINTS_PER_LEVEL = 50;
 const CO2_KG_PER_TREE = 0.8;
+const pendingEmailChangeStorageKey = 'ecoloop:pending-email-change';
 
 const categoryIconSoftBackgroundColors: Record<WasteCategorySlug, string> = {
   cardboard: '#FCE8D8',
@@ -99,6 +103,8 @@ export default function ProfileScreen() {
   const [confirmEmailDraft, setConfirmEmailDraft] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isPreparingEmailChange, setIsPreparingEmailChange] = useState(false);
+  const [pendingEmailChange, setPendingEmailChange] = useState<string | null>(null);
+  const [isRefreshingEmail, setIsRefreshingEmail] = useState(false);
   const [privacyPreferences, setPrivacyPreferences] = useState<PrivacyPreferences>({
     activityReminders: true,
     profileVisibleToFriends: false,
@@ -175,6 +181,56 @@ export default function ProfileScreen() {
   useEffect(() => {
     setDisplayNameDraft(profile.displayName);
   }, [profile.displayName]);
+
+  const refreshVerifiedEmail = useCallback(async () => {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      return false;
+    }
+
+    setIsRefreshingEmail(true);
+
+    try {
+      await reload(currentUser);
+      const refreshedEmail = currentUser.email?.trim();
+
+      if (!refreshedEmail || refreshedEmail === profile.email) {
+        return false;
+      }
+
+      setProfile((currentProfile) => ({
+        ...currentProfile,
+        email: refreshedEmail,
+      }));
+      setPendingEmailChange(null);
+      await setDoc(
+        doc(db, 'users', currentUser.uid),
+        {
+          email: refreshedEmail,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setIsRefreshingEmail(false);
+    }
+  }, [profile.email]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (appState) => {
+      if (appState !== 'active') {
+        return;
+      }
+
+      void refreshVerifiedEmail();
+    });
+
+    return () => subscription.remove();
+  }, [refreshVerifiedEmail]);
 
   const currentLevel = Math.floor(totalEcoPoints / POINTS_PER_LEVEL) + 1;
   const nextLevel = currentLevel + 1;
@@ -264,6 +320,21 @@ export default function ProfileScreen() {
     }
 
     setActiveSettingsSheet(null);
+  }
+
+  async function handleRefreshVerifiedEmail() {
+    const hasUpdatedEmail = await refreshVerifiedEmail();
+
+    if (!hasUpdatedEmail) {
+      Alert.alert(
+        'Not verified yet',
+        'Open the verification link in your new email first, then tap this button again.'
+      );
+    }
+  }
+
+  async function handlePullToRefresh() {
+    await refreshVerifiedEmail();
   }
 
   async function saveDisplayName(trimmedName: string) {
@@ -377,27 +448,20 @@ export default function ProfileScreen() {
           return;
         }
 
-        await updateEmail(currentUser, validatedEmailChange);
-        await setDoc(
-          doc(db, 'users', currentUser.uid),
-          {
-            email: validatedEmailChange,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        setProfile((currentProfile) => ({
-          ...currentProfile,
-          email: validatedEmailChange,
-        }));
+        await verifyBeforeUpdateEmail(currentUser, validatedEmailChange);
+        try {
+          await AsyncStorage.setItem(pendingEmailChangeStorageKey, validatedEmailChange);
+        } catch {
+          // The in-memory notice still guides the user if local storage is unavailable.
+        }
+        setPendingEmailChange(validatedEmailChange);
         savedEmail = true;
 
         Alert.alert(
-          'Changes saved',
+          'Verify your new email',
           savedName
-            ? 'Your username and email address have been updated.'
-            : 'Your email address has been updated.'
+            ? 'Your username has been updated. Open the verification link sent to your new email address; then return to EcoLoop and it will be shown here.'
+            : 'Open the verification link sent to your new email address; then return to EcoLoop and it will be shown here.'
         );
       } catch (error) {
         const errorCode =
@@ -409,6 +473,8 @@ export default function ProfileScreen() {
             ? 'For security, please sign out and sign in again before changing your email address.'
             : errorCode === 'auth/email-already-in-use'
               ? 'That email address is already in use by another account.'
+              : errorCode === 'auth/network-request-failed'
+                ? 'Please check your internet connection and try again.'
               : 'We could not update your email address. Please try again.';
 
         Alert.alert('Unable to update email', message);
@@ -446,6 +512,16 @@ export default function ProfileScreen() {
           ]}
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              colors={[Colors.brand.primaryDark]}
+              onRefresh={() => {
+                void handlePullToRefresh();
+              }}
+              refreshing={isRefreshingEmail}
+              tintColor={Colors.brand.primaryDark}
+            />
+          }
           showsVerticalScrollIndicator={false}>
           <View style={styles.pageContent}>
             <View style={styles.heroSection}>
@@ -890,6 +966,41 @@ export default function ProfileScreen() {
                           <Text style={styles.sheetInfoValue}>{profile.email}</Text>
                         </View>
 
+                        {pendingEmailChange ? (
+                          <View style={styles.sheetNoticeCard}>
+                            <MaterialCommunityIcons
+                              color="#C67A00"
+                              name="email-check-outline"
+                              size={18}
+                            />
+                            <View style={styles.sheetNoticeCopy}>
+                              <Text style={styles.sheetNoticeText}>
+                                Verify {pendingEmailChange}, then refresh your email here.
+                              </Text>
+                              <HapticPressable
+                                accessibilityRole="button"
+                                disabled={isRefreshingEmail}
+                                hapticType="selection"
+                                onPress={() => {
+                                  void handleRefreshVerifiedEmail();
+                                }}
+                                style={({ pressed }) => [
+                                  styles.sheetTertiaryButton,
+                                  pressed && !isRefreshingEmail
+                                    ? styles.sheetPrimaryButtonPressed
+                                    : null,
+                                ]}>
+                                {isRefreshingEmail ? (
+                                  <ActivityIndicator color={Colors.brand.primaryDark} size="small" />
+                                ) : null}
+                                <Text style={styles.sheetTertiaryButtonText}>
+                                  {isRefreshingEmail ? 'Refreshing...' : "I've verified — Refresh email"}
+                                </Text>
+                              </HapticPressable>
+                            </View>
+                          </View>
+                        ) : null}
+
                         <View style={styles.sheetInputGroup}>
                           <Text style={styles.sheetInputLabel}>New Email</Text>
                           <View style={styles.sheetInputWrap}>
@@ -937,7 +1048,7 @@ export default function ProfileScreen() {
                             size={18}
                           />
                           <Text style={styles.sheetNoticeText}>
-                            A recent sign-in is required before a new email can be applied.
+                            We will send a verification link to your new email before updating it.
                           </Text>
                         </View>
                       </View>
@@ -1850,6 +1961,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: Spacing.sm,
     padding: Spacing.md,
+  },
+  sheetNoticeCopy: {
+    flex: 1,
+    gap: Spacing.sm,
   },
   sheetNoticeText: {
     flex: 1,
