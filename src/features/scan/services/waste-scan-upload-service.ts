@@ -13,6 +13,7 @@ type UploadWasteScan = {
   predictionConfidence: number;
   confirmedCategorySlug: WasteCategorySlug;
   capturedAt: string;
+  classificationDurationMs: number;
 };
 
 /**
@@ -43,6 +44,7 @@ export async function uploadConfirmedWasteScan(scan: UploadWasteScan) {
 
     await setDoc(scanDocument, {
       capturedAt: scan.capturedAt,
+      classificationDurationMs: scan.classificationDurationMs,
       confirmedCategorySlug: scan.confirmedCategorySlug,
       createdAt: serverTimestamp(),
       imageContentType: 'image/jpeg',

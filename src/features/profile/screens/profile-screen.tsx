@@ -198,7 +198,8 @@ export default function ProfileScreen() {
     .sort(
       (leftCategory, rightCategory) =>
         rightCategory.pointsEarned - leftCategory.pointsEarned ||
-        rightCategory.sortedCount - leftCategory.sortedCount
+        rightCategory.sortedCount - leftCategory.sortedCount ||
+        leftCategory.name.localeCompare(rightCategory.name)
     )
     .slice(0, 3);
   const isSavingAccountChanges = isSavingProfile || isPreparingEmailChange;

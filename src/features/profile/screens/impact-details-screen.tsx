@@ -216,7 +216,8 @@ export default function ImpactDetailsScreen() {
     .sort(
       (leftCategory, rightCategory) =>
         rightCategory.pointsEarned - leftCategory.pointsEarned ||
-        rightCategory.sortedCount - leftCategory.sortedCount
+        rightCategory.sortedCount - leftCategory.sortedCount ||
+        leftCategory.name.localeCompare(rightCategory.name)
     );
   const topCategory = categoriesByPoints[0] ?? null;
   const unlockedAchievements = achievementDefinitions.map((achievement) => {

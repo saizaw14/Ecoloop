@@ -38,6 +38,10 @@ function formatConfidence(confidence: number) {
   return `${confidence}% confidence`;
 }
 
+function formatClassificationDuration(durationMs: number) {
+  return `${(durationMs / 1000).toFixed(2)} s`;
+}
+
 export default function ScanResultScreen() {
   const router = useRouter();
   const result = getLatestScanResult();
@@ -140,8 +144,9 @@ export default function ScanResultScreen() {
     try {
       setIsSaving(true);
 
-      const didUpload = await uploadConfirmedWasteScan({
+      await uploadConfirmedWasteScan({
         capturedAt: result.capturedAt,
+        classificationDurationMs: result.classificationDurationMs,
         confirmedCategorySlug: confirmedCategory.slug,
         imageUri: result.imageUri,
         predictedCategorySlug: result.categorySlug,
@@ -161,13 +166,6 @@ export default function ScanResultScreen() {
           'Please make sure you are signed in and try again.'
         );
         return;
-      }
-
-      if (!didUpload) {
-        Alert.alert(
-          'Scan saved',
-          'Your sorting progress was saved, but the image could not be added to the accuracy-improvement dataset.'
-        );
       }
 
       clearLatestScanResult();
@@ -239,8 +237,8 @@ export default function ScanResultScreen() {
                 <Text style={styles.resultCategory}>{confirmedCategory.name}</Text>
                 <Text style={styles.resultConfidence}>
                   {wasCategoryCorrected
-                    ? `Manually corrected from ${result.categoryName}`
-                    : `AI prediction at ${formatConfidence(result.confidence)}`}
+                    ? `Classified in ${formatClassificationDuration(result.classificationDurationMs)} · Manually corrected from ${result.categoryName}`
+                    : `Classified in ${formatClassificationDuration(result.classificationDurationMs)} · AI prediction at ${formatConfidence(result.confidence)}`}
                 </Text>
               </View>
 
