@@ -250,8 +250,10 @@ export default function ExploreScreen() {
       ? `&destination_place_id=${encodeURIComponent(center.googlePlaceId)}`
       : '';
 
+    // Leave out dir_action=navigate so Google Maps opens its route preview,
+    // displaying the distance and ETA before the user chooses Start.
     void Linking.openURL(
-      `https://www.google.com/maps/dir/?api=1&destination=${destination}${destinationPlaceId}&travelmode=driving&dir_action=navigate`
+      `https://www.google.com/maps/dir/?api=1&destination=${destination}${destinationPlaceId}&travelmode=driving`
     );
   }
 
