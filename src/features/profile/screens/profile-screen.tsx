@@ -246,7 +246,7 @@ export default function ProfileScreen() {
   const scannedCategories = getWasteCategories(categoryScanCounts).filter(
     (category) => category.sortedCount > 0
   );
-  const topCategories = scannedCategories
+  const categoriesByPoints = scannedCategories
     .map((category) => ({
       ...category,
       pointsEarned: category.sortedCount * calculateWasteEcoPoints(category.slug, false),
@@ -256,8 +256,7 @@ export default function ProfileScreen() {
         rightCategory.pointsEarned - leftCategory.pointsEarned ||
         rightCategory.sortedCount - leftCategory.sortedCount ||
         leftCategory.name.localeCompare(rightCategory.name)
-    )
-    .slice(0, 3);
+    );
   const isSavingAccountChanges = isSavingProfile || isPreparingEmailChange;
 
   async function handleConfirmSignOut() {
@@ -667,7 +666,7 @@ export default function ProfileScreen() {
                   </View>
                 </View>
 
-                <View style={styles.card}>
+                <View style={[styles.card, styles.impactDashboardCard]}>
                   <View style={styles.sectionHeader}>
                     <View style={styles.sectionTitleRow}>
                       <MaterialCommunityIcons
@@ -722,11 +721,11 @@ export default function ProfileScreen() {
                           name="chart-box-outline"
                           size={18}
                         />
-                        <Text style={styles.topCategoriesTitle}>Top Categories</Text>
+                        <Text style={styles.topCategoriesTitle}>Categories by Points</Text>
                       </View>
 
                       <View style={styles.topCategoriesList}>
-                        {topCategories.map((category) => (
+                        {categoriesByPoints.map((category) => (
                           <View key={category.slug} style={styles.topCategoryRow}>
                             <View
                               style={[
@@ -1368,6 +1367,9 @@ const styles = StyleSheet.create({
     borderColor: '#E2EEE8',
     padding: Spacing.lg,
   },
+  impactDashboardCard: {
+    marginBottom: Spacing.xxxl,
+  },
   progressCard: {
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
@@ -1741,6 +1743,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+    marginBottom: Spacing.xxxl,
   },
   signOutButtonPressed: {
     opacity: 0.94,
