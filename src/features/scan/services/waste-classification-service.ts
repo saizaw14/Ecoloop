@@ -147,11 +147,20 @@ async function ensureTensorFlowReady() {
   await tf.ready();
 
   try {
-    await tf.setBackend('rn-webgl');
+    const webglEnabled = await tf.setBackend('rn-webgl');
+
+    if (!webglEnabled || tf.getBackend() !== 'rn-webgl') {
+      throw new Error('React Native WebGL backend is unavailable.');
+    }
   } catch {
-    await tf.setBackend('cpu');
+    const cpuEnabled = await tf.setBackend('cpu');
+
+    if (!cpuEnabled) {
+      throw new Error('TensorFlow.js could not initialize an inference backend.');
+    }
   }
 
+  await tf.ready();
   return tf.getBackend();
 }
 
@@ -251,23 +260,33 @@ async function decodeImageUri(imageUri: string) {
   return decodeJpeg(imageBuffer, 3);
 }
 
+function prepareImageForModel(imageTensor: tf.Tensor3D) {
+  const [imageHeight, imageWidth] = imageTensor.shape;
+  const cropSize = Math.min(imageHeight, imageWidth);
+  const topOffset = Math.floor((imageHeight - cropSize) / 2);
+  const leftOffset = Math.floor((imageWidth - cropSize) / 2);
+  const centeredSquare = imageTensor.slice(
+    [topOffset, leftOffset, 0],
+    [cropSize, cropSize, 3]
+  );
+
+  return tf.image.resizeBilinear(centeredSquare.toFloat(), [MODEL_INPUT_SIZE, MODEL_INPUT_SIZE]);
+}
+
 export async function warmUpWasteClassifier() {
   await getWasteClassifier();
 }
 
 export async function classifyWasteImage(imageUri: string) {
-  const classificationStartedAt = Date.now();
   const [{ backend, model }, imageTensor] = await Promise.all([
     getWasteClassifier(),
     decodeImageUri(imageUri),
   ]);
+  const classificationStartedAt = Date.now();
 
   try {
     const probabilities = tf.tidy(() => {
-      const resizedTensor = tf.image.resizeBilinear(
-        imageTensor.toFloat(),
-        [MODEL_INPUT_SIZE, MODEL_INPUT_SIZE]
-      );
+      const resizedTensor = prepareImageForModel(imageTensor);
       const normalizedTensor = resizedTensor.div(127.5).sub(1);
       const batchedTensor = normalizedTensor.expandDims(0);
       const modelOutput = model.predict(batchedTensor) as tf.Tensor | tf.Tensor[];
