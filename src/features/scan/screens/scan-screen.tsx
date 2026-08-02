@@ -154,7 +154,7 @@ export default function ScanScreen() {
   }
 
   const captureDisabled =
-    !permission?.granted || isProcessing || classifierStatus === 'error';
+    !permission?.granted || isProcessing || classifierStatus !== 'ready';
   const classifierChipStyle =
     classifierStatus === 'error'
       ? styles.classifierChipError
@@ -352,7 +352,11 @@ export default function ScanScreen() {
               </HapticPressable>
 
               <Text style={styles.captureButtonLabel}>
-                {isProcessing ? 'Scanning your item...' : 'Tap to capture'}
+                {isProcessing
+                  ? 'Scanning your item...'
+                  : classifierStatus === 'ready'
+                    ? 'Tap to capture'
+                    : 'Preparing scanner...'}
               </Text>
             </View>
           ) : null}
