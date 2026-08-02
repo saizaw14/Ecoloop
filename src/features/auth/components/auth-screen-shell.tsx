@@ -125,6 +125,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: Spacing.xl,
   },
   contentContainer: {
     flex: 1,
@@ -133,13 +134,10 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
   },
   screenStack: {
-    flex: 1,
-    minHeight: 0,
+    flexGrow: 1,
   },
   mainContent: {
     gap: Spacing.xl,
-    flexShrink: 1,
-    minHeight: 0,
   },
   headerBlock: {
     alignItems: 'center',
@@ -180,7 +178,6 @@ const styles = StyleSheet.create({
   },
   formCard: {
     borderRadius: Radii.lg,
-    flexShrink: 1,
   },
   footerSlot: {
     marginTop: 'auto',
