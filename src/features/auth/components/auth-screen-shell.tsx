@@ -1,10 +1,11 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import { useEffect, useRef, useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Image } from 'expo-image';
 import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -38,9 +39,29 @@ export function AuthScreenShell({
   subtitle,
   title,
 }: AuthScreenShellProps) {
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
   function handleDismissKeyboard() {
     Keyboard.dismiss();
   }
+
+  useEffect(() => {
+    const keyboardShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      });
+    });
+    const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -52,34 +73,42 @@ export function AuthScreenShell({
         <KeyboardAvoidingView
           pointerEvents="box-none"
           style={styles.keyboardContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View pointerEvents="box-none" style={styles.screenStack}>
-            <View pointerEvents="box-none" style={styles.mainContent}>
-              <View pointerEvents="none" style={styles.headerBlock}>
-                {headerVisual ? (
-                  <View style={styles.headerVisualWrap}>{headerVisual}</View>
-                ) : (
-                  <View style={styles.logoWrap}>
-                    <Image
-                      source={AppImages.ecoloopLogo}
-                      contentFit="contain"
-                      style={styles.logo}
-                    />
-                  </View>
-                )}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.scrollContent}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            scrollEnabled={isKeyboardVisible}
+            showsVerticalScrollIndicator={false}>
+            <View pointerEvents="box-none" style={styles.screenStack}>
+              <View pointerEvents="box-none" style={styles.mainContent}>
+                <View pointerEvents="none" style={styles.headerBlock}>
+                  {headerVisual ? (
+                    <View style={styles.headerVisualWrap}>{headerVisual}</View>
+                  ) : (
+                    <View style={styles.logoWrap}>
+                      <Image
+                        source={AppImages.ecoloopLogo}
+                        contentFit="contain"
+                        style={styles.logo}
+                      />
+                    </View>
+                  )}
 
-                <View style={styles.textBlock}>
-                  <Text style={styles.title}>{title}</Text>
-                  <Text style={styles.subtitle}>{subtitle}</Text>
+                  <View style={styles.textBlock}>
+                    <Text style={styles.title}>{title}</Text>
+                    <Text style={styles.subtitle}>{subtitle}</Text>
+                  </View>
+                </View>
+
+                <View pointerEvents="box-none" style={styles.formCard}>
+                  {children}
                 </View>
               </View>
-
-              <View pointerEvents="box-none" style={styles.formCard}>
-                {children}
-              </View>
+              {footer ? <View style={styles.footerSlot}>{footer}</View> : null}
             </View>
-            {footer ? <View style={styles.footerSlot}>{footer}</View> : null}
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Pressable>
     </SafeAreaView>
@@ -93,6 +122,9 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   contentContainer: {
     flex: 1,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -44,6 +45,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { isReady, user } = useAuthSession();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -85,6 +87,14 @@ export default function LoginScreen() {
       isActive = false;
     };
   }, [isReady, user]);
+
+  useEffect(() => {
+    const keyboardShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    });
+
+    return () => keyboardShowListener.remove();
+  }, []);
 
   if (isReady && user) {
     return <Redirect href="/(tabs)" />;
@@ -215,14 +225,20 @@ export default function LoginScreen() {
           <KeyboardAvoidingView
             pointerEvents="box-none"
             style={styles.keyboardContainer}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={styles.heroSection}>
-              <Image
-                source={AppImages.loginRecyclingHero}
-                contentFit="cover"
-                style={styles.heroImage}
-              />
-            </View>
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <ScrollView
+              ref={scrollViewRef}
+              contentContainerStyle={styles.scrollContent}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}>
+              <View style={styles.heroSection}>
+                <Image
+                  source={AppImages.loginRecyclingHero}
+                  contentFit="cover"
+                  style={styles.heroImage}
+                />
+              </View>
 
             <View
               style={[
@@ -300,6 +316,7 @@ export default function LoginScreen() {
                 </HapticPressable>
               </View>
             </View>
+            </ScrollView>
           </KeyboardAvoidingView>
         </Pressable>
       </SafeAreaView>
@@ -335,6 +352,9 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   heroSection: {
     flex: 1,
