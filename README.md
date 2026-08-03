@@ -25,6 +25,7 @@ src/
 ## Commands
 
 ```bash
+cd ecoloop
 npm install
 npm run start
 npm run lint
